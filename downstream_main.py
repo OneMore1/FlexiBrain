@@ -692,7 +692,7 @@ def main():
                         choices=['transformer', 'avgpool'],
                         help='Head architecture type: transformer (CLS + Transformer blocks) or avgpool (average pooling + MLP)')
     parser.add_argument('--num_classes', type=int, default=2, help='Number of classes')
-    parser.add_argument('--head_depth', type=int, default=2, help='Head depth (for transformer head)')
+    parser.add_argument('--head_depth', type=int, default=3, help='Head depth (for transformer head)')
     parser.add_argument('--head_num_heads', type=int, default=8, help='Head num heads (for transformer head)')
     parser.add_argument('--head_mlp_ratio', type=float, default=4.0, help='Head MLP ratio (for transformer head)')
     parser.add_argument('--head_proj_drop', type=float, default=0.1, help='Head projection dropout')
@@ -709,11 +709,11 @@ def main():
     parser.add_argument('--T_prime', type=int, default=30, help='T_prime for dataset')
     parser.add_argument('--tau_seconds', type=float, default=6.0, help='Tau in seconds')
     parser.add_argument('--memory_map', type=bool, default=True, help='Use memory mapping')
-    parser.add_argument('--batch_size', type=int, default=4, help='Batch size')
+    parser.add_argument('--batch_size', type=int, default=2, help='Batch size')
     parser.add_argument('--num_workers', type=int, default=8, help='Number of workers')
 
     # Training arguments
-    parser.add_argument('--lr', type=float, default=5e-5, help='Learning rate')
+    parser.add_argument('--lr', type=float, default=2e-5, help='Learning rate')
     parser.add_argument('--weight_decay', type=float, default=0.05, help='Weight decay')
     parser.add_argument('--lr_backbone', type=float, default=6e-6,
                         help='Base LR for backbone (defaults to --lr if None)')
@@ -725,15 +725,15 @@ def main():
                         help='Set weight_decay=0 for norm/bias/pos_embed/cls_token')
     parser.add_argument('--epochs', type=int, default=30, help='Number of epochs')
     parser.add_argument('--warmup_epochs', type=int, default=3, help='Warmup epochs')
-    parser.add_argument('--grad_accumulation_steps', type=int, default=4, help='Gradient accumulation steps')
+    parser.add_argument('--grad_accumulation_steps', type=int, default=8, help='Gradient accumulation steps')
     parser.add_argument('--seed', type=int, default=42, help='Random seed')
     parser.add_argument('--use_amp', action='store_true', help='Use automatic mixed precision')
     parser.add_argument('--log_interval', type=int, default=20, help='Log interval')
     
     # Checkpoint arguments
-    parser.add_argument('--checkpoint_dir', type=str, default='./checkpoints/downstream/mamba-moe-base-adni-visual',
+    parser.add_argument('--checkpoint_dir', type=str, default='./checkpoints/downstream/mamba-moe-abide1',
                         help='Checkpoint directory')
-    parser.add_argument('--log_dir', type=str, default='./logs/downstream/mamba-moe-base-adni-visual',
+    parser.add_argument('--log_dir', type=str, default='./logs/downstream/mamba-moe-abide1',
                         help='Log directory')
     
     # Distributed arguments
@@ -787,18 +787,6 @@ def main():
             logger.info(f"Test set size: {len(test_loader.dataset)}")
 
 
-    # Build optimizer
-    # param_groups = build_param_groups_with_llrd(
-    # model=model,
-    # base_lr=args.lr,
-    # lr_backbone=args.lr_backbone,
-    # lr_head=args.lr_head,
-    # layer_decay=args.layer_decay,
-    # weight_decay=args.weight_decay,
-    # zero_wd_on_norm_bias=args.no_wd_on_norm_and_bias,
-    # logger=logger if args.local_rank == 0 else None,
-    # )
-    # optimizer = optim.AdamW(param_groups)
     optimizer = optim.AdamW(
         model.parameters(),
         lr=args.lr,

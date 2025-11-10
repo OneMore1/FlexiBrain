@@ -1,0 +1,6 @@
+/mnt/dataset4/DATASETS/fsl_fmri/ADHD/ADHD_KKI_2081148_patient_zscore.nii.gz
+/mnt/dataset4/DATASETS/fsl_fmri/ADHD/ADHD_NYU_10126_patient_zscore.nii.gz
+/mnt/dataset4/DATASETS/fsl_fmri/ADHD/ADHD_OHSU_2571197_patient_zscore.nii.gz
+/mnt/dataset4/DATASETS/fsl_fmri/ADHD/ADHD_OHSU_7333005_patient_zscore.nii.gz
+/mnt/dataset4/DATASETS/fsl_fmri/ADHD/ADHD_Peking_1_2380326_patient_zscore.nii.gz
+/mnt/dataset4/DATASETS/fsl_fmri/ADHD/ADHD_Peking_1_3767334_patient_zscore.nii.gz

@@ -1,0 +1,85 @@
+{
+    "runs": [
+        {
+            "test_list": "/mnt/dataset4/DATASETS/fsl_fmri/split/Transfer_learning/mni/adni_ad/ad_test.txt",
+            "checkpoint": "/mnt/dataset4/yewh/temp-free-model/checkpoints/transfer_mni_results/0.1/mamba-moe-smmall-adni_cn-to-adni_ad/mamba-moe-smmall-adni_cn-to-adni_ad.pt",
+            "output_dir": "/mnt/dataset4/yewh/temp-free-model/eval/mni/transfer/0.1/adni_cn-to-adni_ad",
+            "batch_size": 4,
+            "num_workers": 4,
+            "mask_ratio": 0.65,
+            "amp": true
+        },
+        {
+            "test_list": "/mnt/dataset4/DATASETS/fsl_fmri/split/Transfer_learning/mni/adni_ad/ad_test.txt",
+            "checkpoint": "/mnt/dataset4/yewh/temp-free-model/checkpoints/transfer_mni_results/0.1/mamba-moe-smmall-adni_mci-to-adni_ad/mamba-moe-smmall-adni_mci-to-adni_ad.pt",
+            "output_dir": "/mnt/dataset4/yewh/temp-free-model/eval/mni/transfer/0.1/adni_mci-to-adni_ad",
+            "batch_size": 4,
+            "num_workers": 4,
+            "mask_ratio": 0.65,
+            "amp": true
+        },
+        {
+            "test_list": "/mnt/dataset4/DATASETS/fsl_fmri/split/Transfer_learning/mni/adni_mci/mci_test.txt",
+            "checkpoint": "/mnt/dataset4/yewh/temp-free-model/checkpoints/transfer_mni_results/0.1/mamba-moe-smmall-adni_ad-to-adni_mci/mamba-moe-smmall-adni_ad-to-adni_mci.pt",
+            "output_dir": "/mnt/dataset4/yewh/temp-free-model/eval/mni/transfer/0.1/adni_ad-to-adni_mci",
+            "batch_size": 4,
+            "num_workers": 4,
+            "mask_ratio": 0.65,
+            "amp": true
+        },
+        {
+            "test_list": "/mnt/dataset4/DATASETS/fsl_fmri/split/Transfer_learning/mni/adni_mci/mci_test.txt",
+            "checkpoint": "/mnt/dataset4/yewh/temp-free-model/checkpoints/transfer_mni_results/0.1/mamba-moe-smmall-adni_cn-to-adni_mci/mamba-moe-smmall-adni_cn-to-adni_mci.pt",
+            "output_dir": "/mnt/dataset4/yewh/temp-free-model/eval/mni/transfer/0.1/adni_cn-to-adni_mci",
+            "batch_size": 4,
+            "num_workers": 4,
+            "mask_ratio": 0.65,
+            "amp": true
+        },
+        {
+            "test_list": "/mnt/dataset4/DATASETS/fsl_fmri/split/Transfer_learning/mni/adni_cn/cn_test.txt",
+            "checkpoint": "/mnt/dataset4/yewh/temp-free-model/checkpoints/transfer_mni_results/0.1/mamba-moe-smmall-adni_ad-to-adni_cn/mamba-moe-smmall-adni_ad-to-adni_cn.pt",
+            "output_dir": "/mnt/dataset4/yewh/temp-free-model/eval/mni/transfer/0.1/adni_ad-to-adni_cn",
+            "batch_size": 4,
+            "num_workers": 4,
+            "mask_ratio": 0.65,
+            "amp": true
+        },
+        {
+            "test_list": "/mnt/dataset4/DATASETS/fsl_fmri/split/Transfer_learning/mni/adni_cn/cn_test.txt",
+            "checkpoint": "/mnt/dataset4/yewh/temp-free-model/checkpoints/transfer_mni_results/0.1/mamba-moe-smmall-adni_mci-to-adni_cn/mamba-moe-smmall-adni_mci-to-adni_cn.pt",
+            "output_dir": "/mnt/dataset4/yewh/temp-free-model/eval/mni/transfer/0.1/adni_mci-to-adni_cn",
+            "batch_size": 4,
+            "num_workers": 4,
+            "mask_ratio": 0.65,
+            "amp": true
+        },
+        {
+            "test_list": "/mnt/dataset4/DATASETS/fsl_fmri/split/Transfer_learning/mni/adni_mci/mci_test.txt",
+            "checkpoint": "/mnt/dataset4/yewh/temp-free-model/checkpoints/transfer_gold_mni/mamba-moe-smmall-adni_mci/checkpoint_best.pt",
+            "output_dir": "/mnt/dataset4/yewh/temp-free-model/eval/mni/gold/0.1/adni_mci",
+            "batch_size": 4,
+            "num_workers": 4,
+            "mask_ratio": 0.65,
+            "amp": true
+        },
+        {
+            "test_list": "/mnt/dataset4/DATASETS/fsl_fmri/split/Transfer_learning/mni/adni_cn/cn_test.txt",
+            "checkpoint": "/mnt/dataset4/yewh/temp-free-model/checkpoints/transfer_gold_mni/mamba-moe-smmall-adni_cn/checkpoint_best.pt",
+            "output_dir": "/mnt/dataset4/yewh/temp-free-model/eval/mni/gold/0.1/adni_cn",
+            "batch_size": 4,
+            "num_workers": 4,
+            "mask_ratio": 0.65,
+            "amp": true
+        },
+        {
+            "test_list": "/mnt/dataset4/DATASETS/fsl_fmri/split/Transfer_learning/mni/adni_ad/ad_test.txt",
+            "checkpoint": "/mnt/dataset4/yewh/temp-free-model/checkpoints/transfer_gold_mni/mamba-moe-smmall-adni_ad/checkpoint_best.pt",
+            "output_dir": "/mnt/dataset4/yewh/temp-free-model/eval/mni/gold/0.1/adni_ad",
+            "batch_size": 4,
+            "num_workers": 4,
+            "mask_ratio": 0.65,
+            "amp": true
+        }
+    ]
+}

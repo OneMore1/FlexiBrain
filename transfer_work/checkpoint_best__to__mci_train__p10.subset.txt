@@ -1,0 +1,6 @@
+/mnt/dataset4/DATASETS/fsl_fmri/ADNI(all)/nativespace/mci/ADNI_sub-010S6748_ses-01_task-rest_bold_mc.nii.gz_mci_zscore.nii.gz
+/mnt/dataset4/DATASETS/fsl_fmri/ADNI(all)/nativespace/mci/ADNI_sub-027S6034_ses-01_task-rest_bold_mc.nii.gz_mci_zscore.nii.gz
+/mnt/dataset4/DATASETS/fsl_fmri/ADNI(all)/nativespace/mci/ADNI_sub-027S6788_ses-01_task-rest_bold_mc.nii.gz_mci_zscore.nii.gz
+/mnt/dataset4/DATASETS/fsl_fmri/ADNI(all)/nativespace/mci/ADNI_sub-109S6300_ses-01_task-rest_bold_mc.nii.gz_mci_zscore.nii.gz
+/mnt/dataset4/DATASETS/fsl_fmri/ADNI(all)/nativespace/mci/ADNI_sub-130S6646_ses-01_task-rest_bold_mc.nii.gz_mci_zscore.nii.gz
+/mnt/dataset4/DATASETS/fsl_fmri/ADNI(all)/nativespace/mci/ADNI_sub-301S6615_ses-01_task-rest_bold_mc.nii.gz_mci_zscore.nii.gz

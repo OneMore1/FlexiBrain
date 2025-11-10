@@ -1,0 +1,3 @@
+/mnt/dataset4/DATASETS/fsl_fmri/ADNI(all)/nativespace/mci/ADNI_sub-010S6748_ses-01_task-rest_bold_mc.nii.gz_mci_zscore.nii.gz
+/mnt/dataset4/DATASETS/fsl_fmri/ADNI(all)/nativespace/mci/ADNI_sub-019S6630_ses-01_task-rest_bold_mc.nii.gz_mci_zscore.nii.gz
+/mnt/dataset4/DATASETS/fsl_fmri/ADNI(all)/nativespace/mci/ADNI_sub-037S6141_ses-01_task-rest_bold_mc.nii.gz_mci_zscore.nii.gz

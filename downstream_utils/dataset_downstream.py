@@ -30,9 +30,9 @@ class ClassificationDataset(NiftiTxtDataset):
         labels = []
         for path in self.paths:
             path_str = str(path).lower()
-            if 'cn' in path_str:
+            if 'control' in path_str:
                 labels.append(0)
-            elif 'mci' in path_str:
+            elif 'patient' in path_str:
                 labels.append(1)
             else:
                 raise ValueError(

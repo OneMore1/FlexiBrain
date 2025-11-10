@@ -1,0 +1,6 @@
+/mnt/dataset4/DATASETS/fsl_fmri/ADHD/ADHD_KKI_2344857_control_zscore.nii.gz
+/mnt/dataset4/DATASETS/fsl_fmri/ADHD/ADHD_NYU_10110_control_zscore.nii.gz
+/mnt/dataset4/DATASETS/fsl_fmri/ADHD/ADHD_NYU_10124_control_zscore.nii.gz
+/mnt/dataset4/DATASETS/fsl_fmri/ADHD/ADHD_Peking_1_3587000_control_zscore.nii.gz
+/mnt/dataset4/DATASETS/fsl_fmri/ADHD/ADHD_Peking_1_8328877_control_zscore.nii.gz
+/mnt/dataset4/DATASETS/fsl_fmri/ADNI(all)/nativespace/cn/ADNI_sub-168S6062_ses-01_task-rest_bold_mc.nii.gz_cn_zscore.nii.gz

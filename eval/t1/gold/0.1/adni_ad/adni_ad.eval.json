@@ -1,0 +1,7 @@
+{
+  "checkpoint": "/mnt/dataset4/yewh/temp-free-model/checkpoints/transfer_gold_t1/mamba-moe-smmall-adni_ad/checkpoint_best.pt",
+  "test_list": "/mnt/dataset4/DATASETS/fsl_fmri/split/Transfer_learning/t1/adni_ad/ad_test.txt",
+  "avg_loss": 0.9680524667104086,
+  "num_batches": 3,
+  "num_samples": 11
+}

@@ -1,0 +1,5 @@
+{
+  "checkpoint": "/mnt/dataset4/yewh/temp-free-model/checkpoints/transfer_decoder/fsl/cn_adhd/transfer_decoder_finetuned.pt",
+  "avg_loss": 1.400253164768219,
+  "num_samples": 38
+}

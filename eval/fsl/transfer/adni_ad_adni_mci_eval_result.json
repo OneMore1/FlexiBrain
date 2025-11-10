@@ -1,0 +1,5 @@
+{
+  "checkpoint": "/mnt/dataset4/yewh/temp-free-model/checkpoints/transfer_decoder/fsl/adni_ad_adni_mci/transfer_decoder_finetuned.pt",
+  "avg_loss": 1.4347382692190318,
+  "num_samples": 49
+}

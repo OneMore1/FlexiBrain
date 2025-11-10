@@ -29,8 +29,10 @@ import nibabel as nib
 # Import models and dataset
 from mamba_mae.models_vim_mae import VolumeMambaJEPA
 from mamba_mae.models_vit_jepa import VolumeVitJEPA
+from mamba_mae.moe_gradient_monitor import MoEGradientMonitor
 from dataset import NiftiTxtDataset, build_train_val_from_lists
-
+import os
+os.environ["CUDA_VISIBLE_DEVICES"] = "1"
 
 def custom_collate_fn(batch: List[Dict[str, Any]]) -> Dict[str, Any]:
     """
@@ -222,7 +224,6 @@ def build_model(args, device) -> nn.Module:
             predictor_hidden=args.predictor_hidden,
             momentum=args.momentum,
             norm_target=args.norm_target,
-            use_res_cond=args.use_res_cond,
         )
     elif args.model_type == 'vit':
         model = VolumeVitJEPA(
@@ -238,7 +239,6 @@ def build_model(args, device) -> nn.Module:
             dtype=torch.float32,
             momentum=args.momentum,
             norm_target=args.norm_target,
-            use_res_cond=args.use_res_cond,
         )
     else:
         raise ValueError(f"Unknown model type: {args.model_type}")
@@ -345,6 +345,7 @@ def train_one_epoch(
     args,
     logger: logging.Logger,
     rank: int = 0,
+    moe_gradient_monitor: Optional[MoEGradientMonitor] = None,
 ) -> float:
     """Train for one epoch with timing."""
     model.train()
@@ -361,6 +362,9 @@ def train_one_epoch(
 
     # 用于测量 "等待下一个 batch" 的起点
     end = time.perf_counter()
+
+    # 计算全局步数（用于 MoE 监测）
+    global_step = epoch * len(train_loader)
 
     for batch_idx, batch in enumerate(train_loader):
         # 1) 等待 DataLoader 产出 batch 的时间
@@ -391,16 +395,25 @@ def train_one_epoch(
         total_loss += loss.item()
         num_batches += 1
 
-        stepped = False
         if (batch_idx + 1) % accumulation_steps == 0:
             if args.grad_clip > 0:
                 torch.nn.utils.clip_grad_norm_(model.parameters(), args.grad_clip)
+
+            # 🔬 MoE 梯度监测（在 optimizer.step() 之前）
+            if moe_gradient_monitor is not None and rank == 0:
+                current_step = global_step + batch_idx + 1
+                # 每 N 步监测一次梯度
+                if hasattr(args, 'moe_gradient_log_interval') and current_step % args.moe_gradient_log_interval == 0:
+                    moe_gradient_monitor.log_gradient_stats(
+                        step=current_step,
+                        prefix=f"Epoch {epoch} "
+                    )
+
             optimizer.step()
             optimizer.zero_grad()
             update_ema(model, dynamic_momentum)
             if scheduler is not None:
                 scheduler.step()
-            stepped = True
 
         if torch.cuda.is_available():
             torch.cuda.synchronize()
@@ -523,7 +536,6 @@ def save_checkpoint(
             'norm_target': args.norm_target,
             'num_heads': args.num_heads,
             'mlp_ratio': args.mlp_ratio,
-            'use_res_cond': args.use_res_cond,
         }
 
     # Save latest checkpoint
@@ -572,7 +584,7 @@ def main():
                         help='Path to training list file(s)')
     parser.add_argument('--val_list', type=str, required=True,
                         help='Path to validation list file(s)')
-    parser.add_argument('--batch_size', type=int, default=4,
+    parser.add_argument('--batch_size', type=int, default=2,
                         help='Batch size per GPU')
     parser.add_argument('--num_workers', type=int, default=4,
                         help='Number of data loading workers')
@@ -586,11 +598,11 @@ def main():
     # Model arguments
     parser.add_argument('--model_type', type=str, default='mamba', choices=['mamba', 'vit'],
                         help='Model type: mamba or vit')
-    parser.add_argument('--embed_dim', type=int, default=768,
+    parser.add_argument('--embed_dim', type=int, default=512,
                         help='Embedding dimension')
-    parser.add_argument('--depth', type=int, default=32,
+    parser.add_argument('--depth', type=int, default=24,
                         help='Number of transformer blocks')
-    parser.add_argument('--predictor_depth', type=int, default=8,
+    parser.add_argument('--predictor_depth', type=int, default=4,
                         help='Number of predictor blocks')
     parser.add_argument('--drop_path_rate', type=float, default=0.1,
                         help='Drop path rate')
@@ -600,11 +612,11 @@ def main():
                         help='Use fused add norm')
     parser.add_argument('--residual_in_fp32', action='store_true', default=True,
                         help='Keep residual in fp32')
-    parser.add_argument('--bimamba_type', type=str, default='v2',
+    parser.add_argument('--bimamba_type', type=str, default='none',
                         help='BiMamba type')
-    parser.add_argument('--if_bimamba', type=bool, default=True,
+    parser.add_argument('--if_bimamba', type=bool, default=False,
                         help='Use BiMamba')
-    parser.add_argument('--mixer_type', type=str, default='mamba2',
+    parser.add_argument('--mixer_type', type=str, default='mamba',
                         help='Mixer type')
     parser.add_argument('--if_devide_out', action='store_true', default=True,
                         help='Divide output')
@@ -612,7 +624,7 @@ def main():
                         help='Predictor hidden dimension')
 
     # ViT specific arguments
-    parser.add_argument('--num_heads', type=int, default=8,
+    parser.add_argument('--num_heads', type=int, default=12,
                         help='Number of attention heads (ViT only)')
     parser.add_argument('--mlp_ratio', type=float, default=4.0,
                         help='MLP ratio (ViT only)')
@@ -624,11 +636,9 @@ def main():
                         help='Final momentum for EMA update (dynamic EMA)')
     parser.add_argument('--norm_target', action='store_true', default=True,
                         help='Normalize target features')
-    parser.add_argument('--use_res_cond', action='store_true', default=False,
-                        help='Use residual conditioning')
 
     # Training arguments
-    parser.add_argument('--epochs', type=int, default=200,
+    parser.add_argument('--epochs', type=int, default=100,
                         help='Number of training epochs')
     parser.add_argument('--lr', type=float, default=1e-3,
                         help='Learning rate')
@@ -640,7 +650,7 @@ def main():
                         help='Masking ratio')
     parser.add_argument('--grad_clip', type=float, default=1.0,
                         help='Gradient clipping value')
-    parser.add_argument('--grad_accumulation_steps', type=int, default=4,
+    parser.add_argument('--grad_accumulation_steps', type=int, default=8,
                         help='Number of gradient accumulation steps')
     parser.add_argument('--seed', type=int, default=42,
                         help='Random seed')
@@ -648,12 +658,18 @@ def main():
     # Logging and checkpoint arguments
     parser.add_argument('--log_interval', type=int, default=20,
                         help='Logging interval')
-    parser.add_argument('--checkpoint_dir', type=str, default='./checkpoints/mamba-moe-large4',
+    parser.add_argument('--checkpoint_dir', type=str, default='./checkpoints/mamba-moe-large-monitor-aux-balance',
                         help='Directory to save checkpoints')
-    parser.add_argument('--log_dir', type=str, default='./logs/mamba-moe-large4',
-                        help='Directory to save logs')
+    parser.add_argument('--log_dir', type=str, default='./logs/mamba-moe-large-monitor-aux-balance',
+                            help='Directory to save logs')
     parser.add_argument('--resume', type=str, default=None,
                         help='Path to checkpoint to resume from')
+
+    # MoE monitoring arguments
+    parser.add_argument('--enable_moe_monitoring', action='store_true', default=True,
+                        help='Enable MoE gradient monitoring')
+    parser.add_argument('--moe_gradient_log_interval', type=int, default=120,
+                        help='MoE gradient logging interval (in steps)')
 
     # Distributed training arguments
     parser.add_argument('--local_rank', type=int, default=0,
@@ -705,6 +721,20 @@ def main():
         logger.info(f"Train set size: {len(train_loader.dataset)}")
         logger.info(f"Val set size: {len(val_loader.dataset)}")
 
+    # Initialize MoE gradient monitor (if enabled)
+    moe_gradient_monitor = None
+    if args.enable_moe_monitoring and rank == 0:
+        # 获取实际的模型（如果是 DDP 包装的）
+        actual_model = model.module if hasattr(model, 'module') else model
+
+        # 检查模型是否有 MoE
+        if hasattr(actual_model, 'moe'):
+            logger.info("🔬 Initializing MoE gradient monitor...")
+            moe_gradient_monitor = MoEGradientMonitor(actual_model.moe, logger=logger)
+            logger.info(f"  ✓ MoE monitor enabled (log interval: {args.moe_gradient_log_interval} steps)")
+        else:
+            logger.warning("⚠️  MoE monitoring enabled but model has no 'moe' attribute")
+
     # Build optimizer
     optimizer = optim.AdamW(
         model.parameters(),
@@ -716,10 +746,6 @@ def main():
     total_steps = len(train_loader) * args.epochs
     warmup_steps = len(train_loader) * args.warmup_epochs
 
-    # def lr_lambda(step):
-    #     if step < warmup_steps:
-    #         return float(step) / float(max(1, warmup_steps))
-    #     return max(0.0, float(total_steps - step) / float(max(1, total_steps - warmup_steps)))
     
     def lr_lambda(step): # cos annealing
         if step < warmup_steps:
@@ -760,7 +786,8 @@ def main():
         # Train
         train_loss = train_one_epoch(
             model, train_loader, optimizer, scheduler,
-            device, epoch, args.epochs, args, logger, rank=rank
+            device, epoch, args.epochs, args, logger, rank=rank,
+            moe_gradient_monitor=moe_gradient_monitor
         )
 
         # Validate
