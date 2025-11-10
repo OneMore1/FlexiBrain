@@ -4,12 +4,17 @@ MambaMIM/
 captum_ig_outputs/
 explainer_outputs/
 logs/
+moe_tsne_results/
+transfer_work/
+colla_sim_visual/
+visual_col_mamba/
 
 # 大文件
 *.pt
 *.tar.gz
 *.mp4
 *.psd
+*.json
 
 # 临时
 .DS_Store
