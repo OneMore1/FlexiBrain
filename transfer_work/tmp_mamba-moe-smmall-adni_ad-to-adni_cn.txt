@@ -1,3 +1,3 @@
-/mnt/dataset4/DATASETS/fsl_fmri/ADNI(all)/mnispace/cn/ADNI_sub-027S6327_ses-01_task-rest_space-MNI152NLin6Asym_res-02_desc-preproc_bold.nii.gz_cn_zscore.nii.gz
-/mnt/dataset4/DATASETS/fsl_fmri/ADNI(all)/mnispace/cn/ADNI_sub-129S7042_ses-01_task-rest_space-MNI152NLin6Asym_res-02_desc-preproc_bold.nii.gz_cn_zscore.nii.gz
-/mnt/dataset4/DATASETS/fsl_fmri/ADNI(all)/mnispace/cn/ADNI_sub-168S6128_ses-01_task-rest_space-MNI152NLin6Asym_res-02_desc-preproc_bold.nii.gz_cn_zscore.nii.gz
+/mnt/dataset4/DATASETS/fsl_fmri/ADNI(all)/mnispace/cn/ADNI_sub-002S6066_ses-01_task-rest_space-MNI152NLin6Asym_res-02_desc-preproc_bold.nii.gz_cn_zscore.nii.gz
+/mnt/dataset4/DATASETS/fsl_fmri/ADNI(all)/mnispace/cn/ADNI_sub-037S6144_ses-01_task-rest_space-MNI152NLin6Asym_res-02_desc-preproc_bold.nii.gz_cn_zscore.nii.gz
+/mnt/dataset4/DATASETS/fsl_fmri/ADNI(all)/mnispace/cn/ADNI_sub-098S6362_ses-01_task-rest_space-MNI152NLin6Asym_res-02_desc-preproc_bold.nii.gz_cn_zscore.nii.gz

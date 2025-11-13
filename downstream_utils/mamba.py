@@ -170,9 +170,6 @@ class MambaJEPAClassifier(nn.Module):
         B, L, D = feat.shape
         device = feat.device
 
-        # cond_vec = torch.from_numpy(meta_to_matrix(meta, B)).to(device)
-        # cond_vec = self.backbone.reso_prior_e(cond_vec) # [B,5]
-        # feat = self.backbone.CondLoRA(feat, cond_vec, attn_mask=attn_pad)
         # feat, moe_aux = self.backbone.moe(feat, attn_mask=attn_pad, cond_vec=None)
         # 拼 CLS，并扩展 mask（CLS 为有效位 False）
         cls_tok = self.cls_token.to(dtype=feat.dtype).expand(B, -1, -1)  # [B,1,D]

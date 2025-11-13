@@ -602,7 +602,7 @@ def main():
                         help='Embedding dimension')
     parser.add_argument('--depth', type=int, default=24,
                         help='Number of transformer blocks')
-    parser.add_argument('--predictor_depth', type=int, default=4,
+    parser.add_argument('--predictor_depth', type=int, default=2,
                         help='Number of predictor blocks')
     parser.add_argument('--drop_path_rate', type=float, default=0.1,
                         help='Drop path rate')
@@ -632,7 +632,7 @@ def main():
     # EMA arguments
     parser.add_argument('--momentum', type=float, default=0.992,
                         help='Base momentum for EMA update')
-    parser.add_argument('--final_momentum', type=float, default=0.9999,
+    parser.add_argument('--final_momentum', type=float, default=0.999,
                         help='Final momentum for EMA update (dynamic EMA)')
     parser.add_argument('--norm_target', action='store_true', default=True,
                         help='Normalize target features')
@@ -640,7 +640,7 @@ def main():
     # Training arguments
     parser.add_argument('--epochs', type=int, default=100,
                         help='Number of training epochs')
-    parser.add_argument('--lr', type=float, default=1e-3,
+    parser.add_argument('--lr', type=float, default=5e-4,
                         help='Learning rate')
     parser.add_argument('--weight_decay', type=float, default=0.05,
                         help='Weight decay')
@@ -658,15 +658,15 @@ def main():
     # Logging and checkpoint arguments
     parser.add_argument('--log_interval', type=int, default=20,
                         help='Logging interval')
-    parser.add_argument('--checkpoint_dir', type=str, default='./checkpoints/mamba-moe-large-monitor-aux-balance',
+    parser.add_argument('--checkpoint_dir', type=str, default='./checkpoints/mamba-moe-collapse',
                         help='Directory to save checkpoints')
-    parser.add_argument('--log_dir', type=str, default='./logs/mamba-moe-large-monitor-aux-balance',
+    parser.add_argument('--log_dir', type=str, default='./logs/mamba-moe-collapse',
                             help='Directory to save logs')
     parser.add_argument('--resume', type=str, default=None,
                         help='Path to checkpoint to resume from')
 
     # MoE monitoring arguments
-    parser.add_argument('--enable_moe_monitoring', action='store_true', default=True,
+    parser.add_argument('--enable_moe_monitoring', action='store_true', default=False,
                         help='Enable MoE gradient monitoring')
     parser.add_argument('--moe_gradient_log_interval', type=int, default=120,
                         help='MoE gradient logging interval (in steps)')

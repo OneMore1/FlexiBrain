@@ -2,9 +2,9 @@
 # MoE特征提取与t-SNE可视化分析脚本
 
 # 配置参数
-CHECKPOINT="/mnt/dataset4/yewh/temp-free-model/checkpoints/mamba/checkpoint_best.pt"  # 修改为你的checkpoint路径
+CHECKPOINT="/mnt/dataset4/yewh/temp-free-model/checkpoints/mamba_moe1/checkpoint_best.pt"  # 修改为你的checkpoint路径
 DATA_LIST="/mnt/dataset4/DATASETS/fsl_fmri/split/train.txt"  # 修改为你的数据列表
-OUTPUT_DIR="moe_tsne_results/mamba_coll_perx70_lr200_twlight"
+OUTPUT_DIR="moe_tsne_results/perx150_lr200_twlight"
 BATCH_SIZE=4
 MAX_SAMPLES=2000  # 限制样本数以加快速度，设为None使用全部数据
 STRATEGY="mean"  # 'mean' 平均池化

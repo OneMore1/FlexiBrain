@@ -286,7 +286,7 @@ def main():
     parser.add_argument('--log_dir', type=str, default='./logs/transfer')
 
     # Data/common
-    parser.add_argument('--batch_size', type=int, default=4)
+    parser.add_argument('--batch_size', type=int, default=2)
     parser.add_argument('--num_workers', type=int, default=4)
     parser.add_argument('--memory_map', action='store_true', default=True)
     parser.add_argument('--T_prime', type=int, default=30)

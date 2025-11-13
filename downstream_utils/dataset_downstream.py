@@ -12,167 +12,167 @@ import pandas as pd
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from dataset import NiftiTxtDataset, _read_list_files, _load_nifti, _space_time_units_to_mm_s
 
-class ClassificationDataset(NiftiTxtDataset):
-    """
-    Classification dataset that extends NiftiTxtDataset.
-    
-    Extracts binary labels from filenames:
-    - Files containing 'control' -> label 0
-    - Files containing 'patient' -> label 1
-    """
-    
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.labels = self._extract_labels()
-    
-    def _extract_labels(self) -> List[int]:
-        """Extract binary labels from file paths."""
-        labels = []
-        for path in self.paths:
-            path_str = str(path).lower()
-            if 'control' in path_str:
-                labels.append(0)
-            elif 'patient' in path_str:
-                labels.append(1)
-            else:
-                raise ValueError(
-                    f"Cannot determine label for {path}. "
-                    f"Filename must contain 'control' or 'patient'."
-                )
-        return labels
-    
-    def __getitem__(self, idx: int) -> Dict:
-        sample = super().__getitem__(idx)
-        sample['label'] = self.labels[idx]
-        return sample
-    
-
-
-
 # class ClassificationDataset(NiftiTxtDataset):
 #     """
-#     从文件名中提取 7 位数字 ID -> 去零归一化 -> 在 CSV 中按 SUB_ID 匹配 -> 取 age_group 为标签。
-#     - age_group 若为标量，返回 int；
-#     - age_group 若为 one-hot 字符串/序列，返回 np.ndarray[int]。
+#     Classification dataset that extends NiftiTxtDataset.
+    
+#     Extracts binary labels from filenames:
+#     - Files containing 'control' -> label 0
+#     - Files containing 'patient' -> label 1
 #     """
-
-#     _seven_digits = re.compile(r'(\d{6})(?!\d)')  # 匹配 7 位数字（优先取最后一次出现）
-
-#     def __init__(
-#         self,
-#         *args,
-#         csv_path: Union[str, Path],
-#         id_column: str = 'Subject',
-#         label_column: str = 'Group_idx',
-#         **kwargs
-#     ):
+    
+#     def __init__(self, *args, **kwargs):
 #         super().__init__(*args, **kwargs)
-#         self.csv_path = Path(csv_path)
-#         self.id_column = id_column
-#         self.label_column = label_column
-
-#         self._df = self._load_csv(self.csv_path, self.id_column, self.label_column)
-#         self._id_to_label = self._build_id_to_label(self._df, self.id_column, self.label_column)
-
 #         self.labels = self._extract_labels()
-
-#     @staticmethod
-#     def _normalize_id(x: Any) -> str:
-#         """将 ID 转为字符串并去掉前导 0（空则用 '0'）。"""
-#         s = str(x).strip().lstrip('0')
-#         return s if s != '' else '0'
-
-#     @classmethod
-#     def _load_csv(cls, csv_path: Path, id_column: str, label_column: str) -> pd.DataFrame:
-#         df = pd.read_csv(csv_path)
-#         if id_column not in df.columns or label_column not in df.columns:
-#             raise ValueError(f"CSV 缺少必要列：{id_column}, {label_column}")
-#         df = df.copy()
-#         df['_norm_id'] = df[id_column].apply(cls._normalize_id)
-#         return df
-
-#     @staticmethod
-#     def _parse_label(val: Any) -> Union[int, np.ndarray]:
-#         """
-#         支持以下形式：
-#         - 标量：0/1/2… 或 '0'/'1'/'2' → int
-#         - 字符串 one-hot：'[0,1,0]'、'0,1,0'、'0 1 0' → np.ndarray[int]
-#         - 已是 list/tuple/np.ndarray → np.ndarray[int]
-#         """
-#         # list/array 直接转
-#         if isinstance(val, (list, tuple, np.ndarray)):
-#             return np.asarray(val, dtype=int)
-
-#         # 先尝试标量数字
-#         try:
-#             return int(float(val))
-#         except Exception:
-#             pass
-
-#         # 再尝试字符串形式的列表
-#         if isinstance(val, str):
-#             s = val.strip()
-#             # 先 literal_eval
-#             try:
-#                 lit = ast.literal_eval(s)
-#                 if isinstance(lit, (list, tuple, np.ndarray)):
-#                     return np.asarray(lit, dtype=int)
-#                 if isinstance(lit, (int, float)):
-#                     return int(lit)
-#             except Exception:
-#                 # 退化为手动分割
-#                 tokens = [t for t in re.split(r'[,\s]+', s) if t]
-#                 if all(t.isdigit() for t in tokens) and len(tokens) > 1:
-#                     return np.asarray([int(t) for t in tokens], dtype=int)
-
-#         raise ValueError(f"无法解析标签值: {val!r}")
-
-#     @classmethod
-#     def _build_id_to_label(cls, df: pd.DataFrame, id_column: str, label_column: str):
-#         """构建 norm_id -> label 的映射，并在有冲突时报错。"""
-#         mapping = {}
-#         for _, row in df.iterrows():
-#             key = row['_norm_id']
-#             lbl = cls._parse_label(row[label_column])
-#             if key in mapping:
-#                 a, b = np.asarray(mapping[key]), np.asarray(lbl)
-#                 if a.shape != b.shape or not np.array_equal(a, b):
-#                     raise ValueError(f"CSV 中 SUB_ID={key} 存在冲突标签: {mapping[key]} vs {lbl}")
-#             else:
-#                 mapping[key] = lbl
-#         return mapping
-
-#     def _extract_labels(self) -> List[Union[int, np.ndarray]]:
-#         """从文件名中取 7 位数字，归一化后到 CSV 查 age_group。"""
-#         labels: List[Union[int, np.ndarray]] = []
+    
+#     def _extract_labels(self) -> List[int]:
+#         """Extract binary labels from file paths."""
+#         labels = []
 #         for path in self.paths:
-#             name = Path(path).name  # 仅文件名（不含目录）
-#             match = None
-#             # 若出现多次，取“最后一次”出现的 7 位数字更稳妥
-#             for m in self._seven_digits.finditer(name):
-#                 match = m
-#             if not match:
+#             path_str = str(path).lower()
+#             if 'control' in path_str:
+#                 labels.append(0)
+#             elif 'patient' in path_str:
+#                 labels.append(1)
+#             else:
 #                 raise ValueError(
-#                     f"文件名中找不到 7 位数字 ID：{name}。"
-#                     "应包含形如 0000123 的片段。"
+#                     f"Cannot determine label for {path}. "
+#                     f"Filename must contain 'control' or 'patient'."
 #                 )
-#             raw_seven = match.group(1)
-#             norm_id = self._normalize_id(raw_seven)
-
-#             try:
-#                 label = self._id_to_label[norm_id]
-#             except KeyError:
-#                 raise KeyError(
-#                     f"CSV（{self.csv_path}）中找不到 {self.id_column}（归一化）== {norm_id} 的行 "
-#                     f"(来源于文件名片段 {raw_seven})。"
-#                 )
-#             labels.append(label)
 #         return labels
-
+    
 #     def __getitem__(self, idx: int) -> Dict:
 #         sample = super().__getitem__(idx)
 #         sample['label'] = self.labels[idx]
 #         return sample
+    
+
+
+
+class ClassificationDataset(NiftiTxtDataset):
+    """
+    从文件名中提取 7 位数字 ID -> 去零归一化 -> 在 CSV 中按 SUB_ID 匹配 -> 取 age_group 为标签。
+    - age_group 若为标量，返回 int；
+    - age_group 若为 one-hot 字符串/序列，返回 np.ndarray[int]。
+    """
+
+    _seven_digits = re.compile(r'(\d{6})(?!\d)')  # 匹配 7 位数字（优先取最后一次出现）
+
+    def __init__(
+        self,
+        *args,
+        csv_path: Union[str, Path],
+        id_column: str = 'Subject',
+        label_column: str = 'Group_idx',
+        **kwargs
+    ):
+        super().__init__(*args, **kwargs)
+        self.csv_path = Path(csv_path)
+        self.id_column = id_column
+        self.label_column = label_column
+
+        self._df = self._load_csv(self.csv_path, self.id_column, self.label_column)
+        self._id_to_label = self._build_id_to_label(self._df, self.id_column, self.label_column)
+
+        self.labels = self._extract_labels()
+
+    @staticmethod
+    def _normalize_id(x: Any) -> str:
+        """将 ID 转为字符串并去掉前导 0（空则用 '0'）。"""
+        s = str(x).strip().lstrip('0')
+        return s if s != '' else '0'
+
+    @classmethod
+    def _load_csv(cls, csv_path: Path, id_column: str, label_column: str) -> pd.DataFrame:
+        df = pd.read_csv(csv_path)
+        if id_column not in df.columns or label_column not in df.columns:
+            raise ValueError(f"CSV 缺少必要列：{id_column}, {label_column}")
+        df = df.copy()
+        df['_norm_id'] = df[id_column].apply(cls._normalize_id)
+        return df
+
+    @staticmethod
+    def _parse_label(val: Any) -> Union[int, np.ndarray]:
+        """
+        支持以下形式：
+        - 标量：0/1/2… 或 '0'/'1'/'2' → int
+        - 字符串 one-hot：'[0,1,0]'、'0,1,0'、'0 1 0' → np.ndarray[int]
+        - 已是 list/tuple/np.ndarray → np.ndarray[int]
+        """
+        # list/array 直接转
+        if isinstance(val, (list, tuple, np.ndarray)):
+            return np.asarray(val, dtype=int)
+
+        # 先尝试标量数字
+        try:
+            return int(float(val))
+        except Exception:
+            pass
+
+        # 再尝试字符串形式的列表
+        if isinstance(val, str):
+            s = val.strip()
+            # 先 literal_eval
+            try:
+                lit = ast.literal_eval(s)
+                if isinstance(lit, (list, tuple, np.ndarray)):
+                    return np.asarray(lit, dtype=int)
+                if isinstance(lit, (int, float)):
+                    return int(lit)
+            except Exception:
+                # 退化为手动分割
+                tokens = [t for t in re.split(r'[,\s]+', s) if t]
+                if all(t.isdigit() for t in tokens) and len(tokens) > 1:
+                    return np.asarray([int(t) for t in tokens], dtype=int)
+
+        raise ValueError(f"无法解析标签值: {val!r}")
+
+    @classmethod
+    def _build_id_to_label(cls, df: pd.DataFrame, id_column: str, label_column: str):
+        """构建 norm_id -> label 的映射，并在有冲突时报错。"""
+        mapping = {}
+        for _, row in df.iterrows():
+            key = row['_norm_id']
+            lbl = cls._parse_label(row[label_column])
+            if key in mapping:
+                a, b = np.asarray(mapping[key]), np.asarray(lbl)
+                if a.shape != b.shape or not np.array_equal(a, b):
+                    raise ValueError(f"CSV 中 SUB_ID={key} 存在冲突标签: {mapping[key]} vs {lbl}")
+            else:
+                mapping[key] = lbl
+        return mapping
+
+    def _extract_labels(self) -> List[Union[int, np.ndarray]]:
+        """从文件名中取 7 位数字，归一化后到 CSV 查 age_group。"""
+        labels: List[Union[int, np.ndarray]] = []
+        for path in self.paths:
+            name = Path(path).name  # 仅文件名（不含目录）
+            match = None
+            # 若出现多次，取“最后一次”出现的 7 位数字更稳妥
+            for m in self._seven_digits.finditer(name):
+                match = m
+            if not match:
+                raise ValueError(
+                    f"文件名中找不到 7 位数字 ID：{name}。"
+                    "应包含形如 0000123 的片段。"
+                )
+            raw_seven = match.group(1)
+            norm_id = self._normalize_id(raw_seven)
+
+            try:
+                label = self._id_to_label[norm_id]
+            except KeyError:
+                raise KeyError(
+                    f"CSV（{self.csv_path}）中找不到 {self.id_column}（归一化）== {norm_id} 的行 "
+                    f"(来源于文件名片段 {raw_seven})。"
+                )
+            labels.append(label)
+        return labels
+
+    def __getitem__(self, idx: int) -> Dict:
+        sample = super().__getitem__(idx)
+        sample['label'] = self.labels[idx]
+        return sample
 
 
 def custom_collate_fn(batch: List[Dict[str, Any]]) -> Dict[str, Any]:

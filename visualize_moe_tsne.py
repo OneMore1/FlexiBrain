@@ -41,7 +41,7 @@ def compute_tsne(features, perplexity=30, n_iter=1000, random_state=42, max_samp
     tsne = TSNE(
         n_components=2,
         perplexity=perplexity,
-        learning_rate=150,
+        learning_rate=200,
         n_iter=n_iter,
         random_state=random_state,
         verbose=1,
@@ -333,7 +333,7 @@ def main():
     parser = argparse.ArgumentParser(description='t-SNE可视化MoE特征 - 每个点代表一个样本')
     parser.add_argument('--input', type=str, required=True, help='特征文件(.pkl)')
     parser.add_argument('--output_dir', type=str, default='tsne_results', help='输出目录')
-    parser.add_argument('--perplexity', type=int, default=30, help='t-SNE perplexity')
+    parser.add_argument('--perplexity', type=int, default=10, help='t-SNE perplexity')
     parser.add_argument('--n_iter', type=int, default=1000, help='t-SNE迭代次数')
     parser.add_argument('--max_samples', type=int, default=10000, help='最大样本数（超过则采样）')
     

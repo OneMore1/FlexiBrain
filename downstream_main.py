@@ -437,7 +437,7 @@ def build_downstream_dataloaders(args, rank: int = 0, world_size: int = 1) -> Tu
     # Build datasets
     train_set = ClassificationDataset(
         txt_files=args.train_list,
-        # csv_path='ppmi.csv',
+        csv_path='ppmi.csv',
         return_torch=True,
         memory_map=args.memory_map,
         cache_meta=True,
@@ -447,7 +447,7 @@ def build_downstream_dataloaders(args, rank: int = 0, world_size: int = 1) -> Tu
 
     val_set = ClassificationDataset(
         txt_files=args.val_list,
-        # csv_path='ppmi.csv',
+        csv_path='ppmi.csv',
         return_torch=True,
         memory_map=args.memory_map,
         cache_meta=True,
@@ -460,7 +460,7 @@ def build_downstream_dataloaders(args, rank: int = 0, world_size: int = 1) -> Tu
     if args.test_list is not None:
         test_set = ClassificationDataset(
             txt_files=args.test_list,
-            # csv_path='ppmi.csv',
+            csv_path='ppmi.csv',
             return_torch=True,
             memory_map=args.memory_map,
             cache_meta=True,
@@ -534,6 +534,36 @@ def build_downstream_dataloaders(args, rank: int = 0, world_size: int = 1) -> Tu
     return train_loader, val_loader, test_loader
 
 
+def compute_class_weights(dataset, device, num_classes=None):
+    """
+    计算类别权重，用于处理类别不平衡问题。
+
+    Args:
+        dataset: 数据集对象，需要有 labels 属性
+        device: torch.device
+        num_classes: 类别数量，如果为None则自动推断
+
+    Returns:
+        torch.Tensor: 类别权重，shape为(num_classes,)
+    """
+    labels = np.array(dataset.labels)
+    unique_classes, counts = np.unique(labels, return_counts=True)
+
+    if num_classes is None:
+        num_classes = len(unique_classes)
+
+    # 使用 inverse frequency 计算权重
+    total = counts.sum()
+    weights = total / (num_classes * counts)
+
+    # 创建完整的权重张量
+    class_weights = torch.ones(num_classes, dtype=torch.float32)
+    for cls, weight in zip(unique_classes, weights):
+        class_weights[cls] = weight
+
+    return class_weights.to(device)
+
+
 def train_downstream_one_epoch(
     model: nn.Module,
     train_loader: DataLoader,
@@ -544,11 +574,13 @@ def train_downstream_one_epoch(
     args,
     logger: logging.Logger,
     rank: int = 0,
+    class_weights: Optional[torch.Tensor] = None,
 ) -> float:
     """Train downstream classifier for one epoch with gradient accumulation."""
     model.train()
     total_loss = 0.0
     num_batches = 0
+    # criterion = nn.CrossEntropyLoss(weight=class_weights)
     criterion = nn.CrossEntropyLoss()
     accumulation_steps = args.grad_accumulation_steps
 
@@ -596,10 +628,11 @@ def evaluate_downstream(
     logger: logging.Logger,
     split_name: str = "Validation",
     rank: int = 0,
+    class_weights: Optional[torch.Tensor] = None,
 ) -> Dict[str, float]:
     """Evaluate downstream classifier on any dataset split."""
     model.eval()
-    criterion = nn.CrossEntropyLoss()
+    criterion = nn.CrossEntropyLoss(weight=class_weights)
 
     all_preds = []
     all_labels = []
@@ -691,13 +724,13 @@ def main():
     parser.add_argument('--head_type', type=str, default='transformer',
                         choices=['transformer', 'avgpool'],
                         help='Head architecture type: transformer (CLS + Transformer blocks) or avgpool (average pooling + MLP)')
-    parser.add_argument('--num_classes', type=int, default=2, help='Number of classes')
-    parser.add_argument('--head_depth', type=int, default=3, help='Head depth (for transformer head)')
+    parser.add_argument('--num_classes', type=int, default=3, help='Number of classes')
+    parser.add_argument('--head_depth', type=int, default=2, help='Head depth (for transformer head)')
     parser.add_argument('--head_num_heads', type=int, default=8, help='Head num heads (for transformer head)')
     parser.add_argument('--head_mlp_ratio', type=float, default=4.0, help='Head MLP ratio (for transformer head)')
     parser.add_argument('--head_proj_drop', type=float, default=0.1, help='Head projection dropout')
     parser.add_argument('--head_drop_path', type=float, default=0.05, help='Head drop path (for transformer head)')
-    parser.add_argument('--mlp_hidden', type=int, default=1024, help='MLP hidden dimension')
+    parser.add_argument('--mlp_hidden', type=int, default=512, help='MLP hidden dimension')
     parser.add_argument('--mlp_depth', type=int, default=3, help='MLP depth')
     parser.add_argument('--mlp_dropout', type=float, default=0.1, help='MLP dropout')
     parser.add_argument('--freeze_backbone', action='store_true', help='Freeze backbone')
@@ -713,7 +746,7 @@ def main():
     parser.add_argument('--num_workers', type=int, default=8, help='Number of workers')
 
     # Training arguments
-    parser.add_argument('--lr', type=float, default=2e-5, help='Learning rate')
+    parser.add_argument('--lr', type=float, default=6e-5, help='Learning rate')
     parser.add_argument('--weight_decay', type=float, default=0.05, help='Weight decay')
     parser.add_argument('--lr_backbone', type=float, default=6e-6,
                         help='Base LR for backbone (defaults to --lr if None)')
@@ -726,14 +759,14 @@ def main():
     parser.add_argument('--epochs', type=int, default=30, help='Number of epochs')
     parser.add_argument('--warmup_epochs', type=int, default=3, help='Warmup epochs')
     parser.add_argument('--grad_accumulation_steps', type=int, default=8, help='Gradient accumulation steps')
-    parser.add_argument('--seed', type=int, default=42, help='Random seed')
+    parser.add_argument('--seed', type=int, default=51, help='Random seed')
     parser.add_argument('--use_amp', action='store_true', help='Use automatic mixed precision')
     parser.add_argument('--log_interval', type=int, default=20, help='Log interval')
     
     # Checkpoint arguments
-    parser.add_argument('--checkpoint_dir', type=str, default='./checkpoints/downstream/mamba-moe-abide1',
+    parser.add_argument('--checkpoint_dir', type=str, default='./checkpoints/downstream/ppmi',
                         help='Checkpoint directory')
-    parser.add_argument('--log_dir', type=str, default='./logs/downstream/mamba-moe-abide1',
+    parser.add_argument('--log_dir', type=str, default='./logs/downstream/ppmi',
                         help='Log directory')
     
     # Distributed arguments
@@ -786,6 +819,10 @@ def main():
         if test_loader is not None:
             logger.info(f"Test set size: {len(test_loader.dataset)}")
 
+    # Compute class weights
+    class_weights = compute_class_weights(train_loader.dataset, device)
+    if rank == 0:
+        logger.info(f"Class weights: {class_weights.cpu().numpy()}")
 
     optimizer = optim.AdamW(
         model.parameters(),
@@ -814,19 +851,19 @@ def main():
         # Train
         train_loss = train_downstream_one_epoch(
             model, train_loader, optimizer, scheduler,
-            device, epoch, args, logger, rank=rank
+            device, epoch, args, logger, rank=rank, class_weights=class_weights
         )
 
         # Validate
         val_metrics = evaluate_downstream(
-            model, val_loader, device, args, logger, split_name="Validation", rank=rank
+            model, val_loader, device, args, logger, split_name="Validation", rank=rank, class_weights=class_weights
         )
 
         # Test (if test set is provided)
         test_metrics = None
         if test_loader is not None:
             test_metrics = evaluate_downstream(
-                model, test_loader, device, args, logger, split_name="Test", rank=rank
+                model, test_loader, device, args, logger, split_name="Test", rank=rank, class_weights=class_weights
             )
 
         # Save checkpoint

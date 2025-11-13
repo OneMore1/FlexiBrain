@@ -4,42 +4,7 @@
             "source_checkpoint": "/mnt/dataset4/yewh/temp-free-model/checkpoints/transfer_gold_mni/mamba-moe-smmall-adni_mci/checkpoint_best.pt",
             "train_list": "/mnt/dataset4/DATASETS/fsl_fmri/split/Transfer_learning/mni/adni_cn/cn_train.txt",
             "subset_fraction": 0.1,
-            "output_dir": "/mnt/dataset4/yewh/temp-free-model/checkpoints/transfer_mni_results/0.1/mamba-moe-smmall-adni_mci-to-adni_cn"
-        }
-        ,
-        {
-            "source_checkpoint": "/mnt/dataset4/yewh/temp-free-model/checkpoints/transfer_gold_mni/mamba-moe-smmall-adni_mci/checkpoint_best.pt",
-            "train_list": "/mnt/dataset4/DATASETS/fsl_fmri/split/Transfer_learning/mni/adni_ad/ad_train.txt",
-            "subset_fraction": 0.1,
-            "output_dir": "/mnt/dataset4/yewh/temp-free-model/checkpoints/transfer_mni_results/0.1/mamba-moe-smmall-adni_mci-to-adni_ad"
-        }
-        ,
-        {
-            "source_checkpoint": "/mnt/dataset4/yewh/temp-free-model/checkpoints/transfer_gold_mni/mamba-moe-smmall-adni_ad/checkpoint_best.pt",
-            "train_list": "/mnt/dataset4/DATASETS/fsl_fmri/split/Transfer_learning/mni/adni_cn/cn_train.txt",
-            "subset_fraction": 0.1,
-            "output_dir":"/mnt/dataset4/yewh/temp-free-model/checkpoints/transfer_mni_results/0.1/mamba-moe-smmall-adni_ad-to-adni_cn"
-        }
-        ,
-        {
-            "source_checkpoint": "/mnt/dataset4/yewh/temp-free-model/checkpoints/transfer_gold_mni/mamba-moe-smmall-adni_ad/checkpoint_best.pt",
-            "train_list": "/mnt/dataset4/DATASETS/fsl_fmri/split/Transfer_learning/mni/adni_mci/mci_train.txt",
-            "subset_fraction": 0.1,
-            "output_dir": "/mnt/dataset4/yewh/temp-free-model/checkpoints/transfer_mni_results/0.1/mamba-moe-smmall-adni_ad-to-adni_mci"
-        }
-        ,
-        {
-            "source_checkpoint": "/mnt/dataset4/yewh/temp-free-model/checkpoints/transfer_gold_mni/mamba-moe-smmall-adni_cn/checkpoint_best.pt",
-            "train_list": "/mnt/dataset4/DATASETS/fsl_fmri/split/Transfer_learning/mni/adni_mci/mci_train.txt",
-            "subset_fraction": 0.1,
-            "output_dir": "/mnt/dataset4/yewh/temp-free-model/checkpoints/transfer_mni_results/0.1/mamba-moe-smmall-adni_cn-to-adni_mci"
-        }
-        ,
-        {
-            "source_checkpoint": "/mnt/dataset4/yewh/temp-free-model/checkpoints/transfer_gold_mni/mamba-moe-smmall-adni_cn/checkpoint_best.pt",
-            "train_list": "/mnt/dataset4/DATASETS/fsl_fmri/split/Transfer_learning/mni/adni_ad/ad_train.txt",
-            "subset_fraction": 0.1,
-            "output_dir": "/mnt/dataset4/yewh/temp-free-model/checkpoints/transfer_t1_results/0.1/mamba-moe-smmall-adni_cn-to-adni_ad"
+            "output_dir":"/mnt/dataset4/yewh/temp-free-model/checkpoints/transfer_mni_results/0.1/mamba-moe-smmall-adni_mci-to-adni_cn"
         }
     ]
 }

@@ -73,7 +73,7 @@ class MultiExplainer:
         
         with torch.enable_grad():
             logits = self.model.forward(x, meta=current_meta, orig_Ts=current_orig_Ts,
-                                       affines=current_affines, inference_params=None, explain_mode=True)
+                                       affines=current_affines, inference_params=None, explain_mode=False)
             return logits[:, self.target_class]
     
     def _get_baseline(self, x: torch.Tensor, method: str = 'zero'):
@@ -501,11 +501,11 @@ def load_model(checkpoint_path: str, device: str):
     from mamba_mae.models_vim_mae import VolumeMambaJEPA
     backbone = VolumeMambaJEPA(
         in_chans=1, embed_dim=512, depth=24, num_heads=8, mlp_ratio=4.0,
-        qkv_bias=True, norm_layer=torch.nn.LayerNorm, mask_ratio=0.0,
+        norm_layer=torch.nn.LayerNorm, mask_ratio=0.0,
     )
     
     model = MambaJEPAClassifier(backbone=backbone, num_classes=2, head_depth=2,
-                                mlp_depth=3, mlp_hidden=1024)
+                                mlp_depth=3, mlp_hidden=512)
     model.load_state_dict(state_dict, strict=False)
     model.to(device).eval()
     print("✓ 模型加载完成")
@@ -517,22 +517,22 @@ def main():
     parser.add_argument('--checkpoint', type=str, required=True, help='模型检查点')
     parser.add_argument('--data_path', type=str, help='输入nifti文件路径')
     parser.add_argument('--data_list', type=str, help='包含多个nifti文件路径的txt文件')
-    parser.add_argument('--output_dir', type=str, default='/mnt/dataset4/yewh/temp-free-model/explainer_outputs/abide1/connected', help='输出目录')
+    parser.add_argument('--output_dir', type=str, default='/mnt/dataset4/yewh/temp-free-model/explainer_outputs/adni_test', help='输出目录')
     parser.add_argument('--methods', type=str, nargs='+',
-                       default=['ig', 'inputxgrad'],
+                       default=['ig'],
                        help='可解释性方法列表 (支持: ig, saliency, inputxgrad, etc.)')
     parser.add_argument('--target_class', type=int, default=1, help='目标类别')
-    parser.add_argument('--n_steps', type=int, default=128, help='积分步数(IG/GradShap)')
+    parser.add_argument('--n_steps', type=int, default=256, help='积分步数(IG/GradShap)')
     parser.add_argument('--device', type=str, default='cuda', help='计算设备')
     parser.add_argument('--baseline', type=str, default='zero',
                        choices=['zero', 'mean', 'random'], help='baseline方法')
     parser.add_argument('--scaling', type=str, default='minmax',
                        choices=['percentile', 'minmax', 'std', 'abs_percentile', 'none'],
                        help='梯度缩放方法')
-    parser.add_argument('--temporal_agg', type=str, default='mean',
+    parser.add_argument('--temporal_agg', type=str, default='max',
                        choices=['mean', 'max', 'sum', 'none'],
                        help='时间维度聚合方法')
-    parser.add_argument('--smooth_sigma', type=float, default=0.5,
+    parser.add_argument('--smooth_sigma', type=float, default=1,
                        help='3D Gaussian平滑sigma值 (0=不平滑, 推荐0.5-2.0)')
     parser.add_argument('--T_prime', type=int, default=30, help='时间patch数量')
     parser.add_argument('--tau_seconds', type=float, default=6.0, help='时间窗口(秒)')
@@ -542,16 +542,16 @@ def main():
                        help='启用内存高效模式(进一步减少显存占用)')
 
     # 激活过滤参数
-    parser.add_argument('--filter_method', type=str, default='connected',
+    parser.add_argument('--filter_method', type=str, default='combined',
                        choices=['threshold', 'topk', 'connected', 'combined', 'none'],
                        help='激活区域过滤方法 (减少热力图噪声)')
-    parser.add_argument('--threshold_percentile', type=float, default=90.0,
+    parser.add_argument('--threshold_percentile', type=float, default=99.0,
                        help='阈值过滤的百分位数 (0-100)')
-    parser.add_argument('--topk_percent', type=float, default=3.0,
+    parser.add_argument('--topk_percent', type=float, default=1.0,
                        help='Top-K 过滤的百分比 (0-100)')
     parser.add_argument('--n_components', type=int, default=5,
                        help='连通域过滤保留的区域数量')
-    parser.add_argument('--min_component_size', type=int, default=200,
+    parser.add_argument('--min_component_size', type=int, default=1000,
                        help='最小连通域大小（体素数）')
 
     args = parser.parse_args()
