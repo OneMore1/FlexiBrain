@@ -19,3 +19,4 @@ visual_col_mamba/
 # 临时
 .DS_Store
 *.log
+*.whl
