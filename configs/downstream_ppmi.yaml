@@ -1,0 +1,39 @@
+pretrain_checkpoint: /mnt/dataset4/yewh/temp-free-model/checkpoints/mamba_moe1/checkpoint_best.pt
+from_scratch: false
+use_checkpoint_config: true
+model:
+  model_type: mamba
+  num_classes: 3
+  head_type: transformer
+  head_depth: 2
+  head_num_heads: 8
+  head_mlp_ratio: 4.0
+  head_proj_drop: 0.1
+  head_drop_path: 0.1
+  mlp_hidden: 512
+  mlp_depth: 4
+  mlp_dropout: 0.1
+  freeze_backbone: false
+data:
+  train_list: /mnt/dataset4/DATASETS/fsl_fmri/split/ppmi_train.txt
+  val_list: /mnt/dataset4/DATASETS/fsl_fmri/split/ppmi_val.txt
+  test_list: /mnt/dataset4/DATASETS/fsl_fmri/split/ppmi_test.txt
+  csv: /mnt/dataset4/yewh/temp-free-model/ppmi.csv
+  batch_size: 8
+  num_workers: 8
+  T_prime: 30
+  tau_seconds: 6.0
+training:
+  epochs: 30
+  lr: 1.0e-5
+  lr_backbone: 6.0e-6
+  lr_head: 6.0e-5
+  weight_decay: 0.05
+  warmup_epochs: 2
+  grad_accumulation_steps: 2
+  seed: 42
+  use_amp: true
+logging:
+  log_interval: 20
+  checkpoint_dir: ./checkpoints/downstream/ppmi
+  log_dir: ./logs/downstream/ppmi
