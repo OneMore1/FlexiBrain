@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Unified ADNI preprocessing for native, T1, and MNI global z-score NIfTIs."""
+"""Generic three-space 4D voxel preprocessing with sample-wise global z-score."""
 
 from __future__ import annotations
 
@@ -9,14 +9,14 @@ import sys
 import warnings
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Dict, Iterable, List, Optional, Tuple
+from typing import Any, Dict, Iterable, List, Optional, Sequence, Tuple
 
 import nibabel as nib
 import numpy as np
 
 try:
     from nilearn.image import resample_to_img
-except ImportError:  # MNI processing will report a clear error if requested.
+except ImportError:
     resample_to_img = None
 
 try:
@@ -25,11 +25,7 @@ except ImportError:
     tqdm = None
 
 
-SPACE_DIRS = {
-    "native": "nativespace",
-    "t1": "t1space",
-    "mni": "mnispace",
-}
+SPACE_ORDER = ("native", "t1", "mni")
 
 
 @dataclass
@@ -62,16 +58,16 @@ def parse_target_shape(value: str) -> Tuple[int, int, int]:
     return shape  # type: ignore[return-value]
 
 
-def parse_groups(value: str) -> List[str]:
-    groups = [group.strip() for group in value.split(",") if group.strip()]
-    if not groups:
-        raise argparse.ArgumentTypeError("at least one group is required")
-    return groups
+def parse_csv(value: Optional[str]) -> Optional[List[str]]:
+    if value is None:
+        return None
+    items = [item.strip() for item in value.split(",") if item.strip()]
+    return items or None
 
 
 def selected_spaces(value: str) -> List[str]:
     if value == "all":
-        return ["native", "t1", "mni"]
+        return list(SPACE_ORDER)
     return [value]
 
 
@@ -89,19 +85,20 @@ def nifti_stem(path: Path) -> str:
     return path.stem
 
 
-def output_path(out_root: Path, space: str, group: str, in_file: Path) -> Path:
-    stem = nifti_stem(in_file)
-    return out_root / SPACE_DIRS[space] / group / f"ADNI_{stem}_{group}_global_zscore.nii.gz"
+def clean_output_name(in_file: Path) -> str:
+    return f"{nifti_stem(in_file)}_global_zscore.nii.gz"
 
 
 def iter_nifti_files(input_dir: Path) -> List[Path]:
+    if not input_dir.is_dir():
+        return []
     return sorted((path for path in input_dir.iterdir() if is_nifti_file(path)), key=lambda p: p.name)
 
 
-def progress(items: Iterable[Path], desc: str) -> Iterable[Path]:
+def progress(items: Sequence[Path], desc: str) -> Iterable[Path]:
     if tqdm is None:
         return items
-    return tqdm(list(items), desc=desc)
+    return tqdm(items, desc=desc)
 
 
 def pad_crop_keep_world(
@@ -200,22 +197,42 @@ def pad_crop_keep_world(
     return out_img, info
 
 
-def best_match_by_subject(given_name: str, target_dir: Path) -> Optional[Path]:
-    match = re.search(r"(sub-\d{3}S\d{4})", given_name, flags=re.IGNORECASE)
-    if match is None:
+def extract_match_key(path: Path) -> str:
+    stem = nifti_stem(path)
+    bids_match = re.search(r"(sub-[A-Za-z0-9]+)", stem, flags=re.IGNORECASE)
+    if bids_match:
+        return bids_match.group(1).lower()
+
+    for token in ("_space-", "_desc-", "_task-", "_run-", "_bold", "_fmri"):
+        idx = stem.lower().find(token)
+        if idx > 0:
+            return stem[:idx].lower()
+    return stem.lower()
+
+
+def best_matching_file(source_file: Path, target_dir: Path) -> Optional[Path]:
+    if not target_dir.is_dir():
         return None
-    subject_id = match.group(1)
-    candidates = [path for path in target_dir.rglob(f"*{subject_id}*") if is_nifti_file(path)]
+
+    key = extract_match_key(source_file)
+    candidates = [path for path in target_dir.rglob("*") if is_nifti_file(path)]
     if not candidates:
         return None
 
-    def score(path: Path) -> Tuple[int, int, int, str]:
-        name = path.name.lower()
-        zscore_bonus = 2 if "zscore" in name else 0
-        bold_bonus = 1 if "bold_mc" in name else 0
-        return (zscore_bonus, bold_bonus, -len(str(path)), str(path))
+    source_stem = nifti_stem(source_file).lower()
 
-    return max(candidates, key=score)
+    def score(path: Path) -> Tuple[int, int, int, str]:
+        stem = nifti_stem(path).lower()
+        exact = 3 if stem == source_stem else 0
+        key_match = 2 if key and key in stem else 0
+        short_path = -len(str(path))
+        return (exact, key_match, short_path, str(path))
+
+    best = max(candidates, key=score)
+    best_score = score(best)
+    if best_score[0] == 0 and best_score[1] == 0:
+        return None
+    return best
 
 
 def make_output_image(z_data: np.ndarray, template_img: nib.Nifti1Image) -> nib.Nifti1Image:
@@ -255,19 +272,21 @@ def load_4d_padded(path: Path, target_shape: Tuple[int, int, int]) -> Tuple[Opti
     return pad_crop_keep_world(img, target_xyz=target_shape, fill_value=0.0)
 
 
-def resolve_mni_mask(mask_arg: str) -> Path:
+def resolve_mask_path(mask_arg: Optional[str], script_dir: Path) -> Optional[Path]:
+    if not mask_arg:
+        return None
     mask_path = Path(mask_arg)
     if mask_path.exists():
         return mask_path
-    script_relative = Path(__file__).resolve().parent / mask_arg
+    script_relative = script_dir / mask_arg
     if script_relative.exists():
         return script_relative
     return mask_path
 
 
-def resample_mni_background(mask_img: nib.Nifti1Image, target_img: nib.Nifti1Image) -> np.ndarray:
+def resample_template_background(mask_img: nib.Nifti1Image, target_img: nib.Nifti1Image) -> np.ndarray:
     if resample_to_img is None:
-        raise RuntimeError("nilearn is required for MNI mask resampling but is not installed")
+        raise RuntimeError("nilearn is required for template mask resampling but is not installed")
     try:
         mask_res = resample_to_img(
             mask_img,
@@ -284,13 +303,50 @@ def resample_mni_background(mask_img: nib.Nifti1Image, target_img: nib.Nifti1Ima
     return mask_arr == 0
 
 
+def space_subdir(args: argparse.Namespace, space: str) -> str:
+    return {
+        "native": args.native_subdir,
+        "t1": args.t1_subdir,
+        "mni": args.mni_subdir,
+    }[space]
+
+
+def input_dir_for(args: argparse.Namespace, space: str, group: Optional[str]) -> Path:
+    base = args.input_root / space_subdir(args, space)
+    return base / group if group else base
+
+
+def output_dir_for(args: argparse.Namespace, space: str, group: Optional[str]) -> Path:
+    base = args.output_root / space_subdir(args, space)
+    return base / group if group else base
+
+
+def output_path_for(args: argparse.Namespace, space: str, group: Optional[str], in_file: Path) -> Path:
+    return output_dir_for(args, space, group) / clean_output_name(in_file)
+
+
+def discover_groups(args: argparse.Namespace, space: str) -> List[Optional[str]]:
+    if args.groups is not None:
+        return args.groups
+
+    base = args.input_root / space_subdir(args, space)
+    if not base.is_dir():
+        return [None]
+
+    groups: List[Optional[str]] = []
+    if iter_nifti_files(base):
+        groups.append(None)
+    groups.extend(sorted(path.name for path in base.iterdir() if path.is_dir() and iter_nifti_files(path)))
+    return groups or [None]
+
+
 def process_one_file(
     in_file: Path,
     out_file: Path,
     space: str,
-    group: str,
+    group: Optional[str],
     args: argparse.Namespace,
-    mni_mask_img: Optional[nib.Nifti1Image] = None,
+    template_mask_img: Optional[nib.Nifti1Image] = None,
 ) -> str:
     new_img, info = load_4d_padded(in_file, args.target_shape)
     if new_img is None:
@@ -303,22 +359,22 @@ def process_one_file(
     if space == "native":
         background_mask = (arr == 0).all(axis=3)
     elif space == "t1":
-        native_dir = args.data_root / SPACE_DIRS["native"] / group
-        native_match = best_match_by_subject(in_file.name, native_dir)
+        native_dir = input_dir_for(args, "native", group)
+        native_match = best_matching_file(in_file, native_dir)
         if native_match is None:
-            print(f"[WARN] T1 mask source not found for {in_file.name} in {native_dir}")
+            print(f"[WARN] Native-space mask source not found for {in_file.name} in {native_dir}")
             return "skipped_no_mask"
         native_img, _ = load_4d_padded(native_match, args.target_shape)
         if native_img is None:
-            print(f"[WARN] T1 mask source is not 4D, skipping: {native_match}")
+            print(f"[WARN] Native-space mask source is not 4D, skipping: {native_match}")
             return "skipped_no_mask"
         native_arr = np.asarray(native_img.dataobj, dtype=np.float32)
         background_mask = (native_arr == 0).all(axis=3)
     elif space == "mni":
-        if mni_mask_img is None:
-            print(f"[WARN] MNI mask unavailable, skipping: {in_file}")
+        if template_mask_img is None:
+            print(f"[WARN] Template mask unavailable, skipping: {in_file}")
             return "skipped_no_mask"
-        background_mask = resample_mni_background(mni_mask_img, new_img)
+        background_mask = resample_template_background(template_mask_img, new_img)
     else:
         raise ValueError(f"Unsupported space: {space}")
 
@@ -327,8 +383,9 @@ def process_one_file(
         print(f"[WARN] Empty foreground after masking, skipping: {in_file}")
         return "skipped_empty_foreground"
 
+    group_label = group if group is not None else "ungrouped"
     print(
-        f"[AFT] {space}/{group} {in_file.name}: "
+        f"[AFT] {space}/{group_label} {in_file.name}: "
         f"{info['old_shape']} -> {new_img.shape}, plan={info['plan']}"
     )
     if args.dry_run:
@@ -350,29 +407,31 @@ def increment(counts: Counts, status: str) -> None:
 
 def process_space_group(
     space: str,
-    group: str,
+    group: Optional[str],
     args: argparse.Namespace,
-    mni_mask_img: Optional[nib.Nifti1Image] = None,
+    template_mask_img: Optional[nib.Nifti1Image] = None,
 ) -> Counts:
     counts = Counts()
-    input_dir = args.data_root / SPACE_DIRS[space] / group
+    input_dir = input_dir_for(args, space, group)
+    group_label = group if group is not None else "ungrouped"
+
     if not input_dir.is_dir():
-        print(f"[WARN] Missing input dir, skipping {space}/{group}: {input_dir}")
+        print(f"[WARN] Missing input dir, skipping {space}/{group_label}: {input_dir}")
         counts.skipped_input_dir += 1
         return counts
 
     files = iter_nifti_files(input_dir)
-    print(f"[INFO] {space}/{group}: found {len(files)} NIfTI file(s) in {input_dir}")
-    for in_file in progress(files, desc=f"{space}/{group}"):
+    print(f"[INFO] {space}/{group_label}: found {len(files)} NIfTI file(s) in {input_dir}")
+    for in_file in progress(files, desc=f"{space}/{group_label}"):
         counts.seen += 1
-        out_file = output_path(args.out_root, space, group, in_file)
+        out_file = output_path_for(args, space, group, in_file)
         if out_file.exists() and not args.overwrite:
             print(f"[SKIP] Exists: {out_file}")
             counts.skipped_existing += 1
             continue
 
         try:
-            status = process_one_file(in_file, out_file, space, group, args, mni_mask_img)
+            status = process_one_file(in_file, out_file, space, group, args, template_mask_img)
             increment(counts, status)
         except Exception as exc:
             counts.failed += 1
@@ -383,18 +442,18 @@ def process_space_group(
 
 def build_arg_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
-        description="Process ADNI native/T1/MNI 4D NIfTIs with sample-wise global z-score."
+        description="Process native/T1/MNI 4D voxel NIfTIs with sample-wise global z-score."
     )
     parser.add_argument(
-        "--data-root",
+        "--input-root",
         type=Path,
-        default=Path("/mnt/dataset4/wangmo/iclr2026/ADNI(all)"),
-        help="ADNI root containing nativespace, t1space, and mnispace group folders.",
+        default=Path("."),
+        help="Root containing the native, T1, and MNI input subdirectories.",
     )
     parser.add_argument(
-        "--out-root",
+        "--output-root",
         type=Path,
-        default=Path("/mnt/dataset4/DATASETS/fsl_fmri/global/ADNI(all)"),
+        default=Path("global_zscore_outputs"),
         help="Output root for processed full 4D NIfTI files.",
     )
     parser.add_argument(
@@ -405,10 +464,13 @@ def build_arg_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument(
         "--groups",
-        type=parse_groups,
-        default=parse_groups("ad,mci,cn"),
-        help="Comma-separated group list.",
+        type=parse_csv,
+        default=None,
+        help="Optional comma-separated group/subfolder list. If omitted, groups are auto-discovered.",
     )
+    parser.add_argument("--native-subdir", default="nativespace", help="Native-space subdirectory under input/output roots.")
+    parser.add_argument("--t1-subdir", default="t1space", help="T1-space subdirectory under input/output roots.")
+    parser.add_argument("--mni-subdir", default="mnispace", help="MNI/template-space subdirectory under input/output roots.")
     parser.add_argument(
         "--target-shape",
         type=parse_target_shape,
@@ -416,9 +478,9 @@ def build_arg_parser() -> argparse.ArgumentParser:
         help="Spatial target shape formatted as X,Y,Z.",
     )
     parser.add_argument(
-        "--mni-mask",
+        "--template-mask",
         default="MNI152_T1_2mm_Brain_Mask.nii.gz",
-        help="MNI brain mask path. Relative paths are also checked next to this script.",
+        help="Brain mask for MNI/template-space inputs. Relative paths are also checked next to this script.",
     )
     parser.add_argument("--overwrite", action="store_true", help="Overwrite existing outputs.")
     parser.add_argument("--dry-run", action="store_true", help="Print planned work without writing outputs.")
@@ -430,29 +492,33 @@ def main(argv: Optional[List[str]] = None) -> int:
     parser = build_arg_parser()
     args = parser.parse_args(argv)
 
-    data_root = args.data_root.resolve()
-    out_root = args.out_root.resolve()
-    if out_root == data_root or data_root in out_root.parents:
-        print(
-            f"[ERROR] --out-root must not be the data root or inside it: {args.out_root}",
-            file=sys.stderr,
-        )
-        return 2
+    input_root = args.input_root.resolve()
+    output_root = args.output_root.resolve()
+    for space in SPACE_ORDER:
+        input_space_dir = (input_root / space_subdir(args, space)).resolve()
+        output_space_dir = (output_root / space_subdir(args, space)).resolve()
+        if output_space_dir == input_space_dir or input_space_dir in output_space_dir.parents:
+            print(
+                "[ERROR] Output space directory must not be the same as or inside "
+                f"the input space directory: {output_space_dir}",
+                file=sys.stderr,
+            )
+            return 2
 
     spaces = selected_spaces(args.spaces)
-    mni_mask_img = None
+    template_mask_img = None
     if "mni" in spaces:
-        mask_path = resolve_mni_mask(args.mni_mask)
-        if not mask_path.exists():
-            print(f"[WARN] MNI mask not found; MNI files will be skipped: {mask_path}", file=sys.stderr)
+        mask_path = resolve_mask_path(args.template_mask, Path(__file__).resolve().parent)
+        if mask_path is None or not mask_path.exists():
+            print(f"[WARN] Template mask not found; MNI/template files will be skipped: {args.template_mask}", file=sys.stderr)
         else:
-            mni_mask_img = nib.load(str(mask_path))
-            print(f"[INFO] Loaded MNI mask: {mask_path}")
+            template_mask_img = nib.load(str(mask_path))
+            print(f"[INFO] Loaded template mask: {mask_path}")
 
     total = Counts()
     for space in spaces:
-        for group in args.groups:
-            counts = process_space_group(space, group, args, mni_mask_img=mni_mask_img)
+        for group in discover_groups(args, space):
+            counts = process_space_group(space, group, args, template_mask_img=template_mask_img)
             total.add(counts)
 
     print(
