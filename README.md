@@ -43,6 +43,91 @@ kt = round(tau_seconds / TR)
 T_selected = T_prime * kt
 ```
 
+### Three-Space Global Z-score Preprocessing
+
+For voxel-level fMRI experiments, the preprocessing script can prepare three spatial versions of each 4D sample:
+
+```text
+Native space
+T1 space
+MNI space
+```
+
+Each version is converted to a fixed spatial shape while preserving the temporal dimension:
+
+```text
+X x Y x Z x T
+-> 96 x 96 x 96 x T
+```
+
+After spatial padding/cropping, each sample is normalized with **sample-wise global z-score**. Background voxels are excluded when estimating the normalization statistics. For each 4D sample, the mean and standard deviation are computed from all foreground voxels across all time points:
+
+```text
+foreground_values = data[foreground_mask, :]
+mean = foreground_values.mean()
+std = foreground_values.std()
+z = (data - mean) / (std + 1e-6)
+```
+
+Background voxels are then set to zero in the final output.
+
+The unified preprocessing script generates full 4D NIfTI files for all three spaces:
+
+```bash
+python data_process.py \
+  --input-root /path/to/input_root \
+  --output-root /path/to/output_root \
+  --spaces all \
+  --groups class0,class1,class2
+```
+
+Expected input layout:
+
+```text
+input_root/
+|-- nativespace/
+|   |-- class0/
+|   |-- class1/
+|   `-- class2/
+|-- t1space/
+|   |-- class0/
+|   |-- class1/
+|   `-- class2/
+`-- mnispace/
+    |-- class0/
+    |-- class1/
+    `-- class2/
+```
+
+Expected output layout:
+
+```text
+output_root/
+|-- nativespace/
+|   |-- class0/
+|   |-- class1/
+|   `-- class2/
+|-- t1space/
+|   |-- class0/
+|   |-- class1/
+|   `-- class2/
+`-- mnispace/
+    |-- class0/
+    |-- class1/
+    `-- class2/
+```
+
+Each output file is a full 4D NIfTI:
+
+```text
+{stem}_global_zscore.nii.gz
+```
+
+If the input files are not organized by class or group subfolders, omit `--groups`; the script can also process NIfTI files placed directly under each space directory. For T1-space inputs, the script uses the corresponding native-space file to estimate the background mask. For MNI-space inputs, provide a template-space brain mask with `--template-mask` when the default mask is not available.
+
+The generated files can then be used directly in Flexibrain path-list files for pretraining or downstream classification.
+
+
 ### Pretraining Lists
 
 Pretraining uses text files with one NIfTI path per line:
