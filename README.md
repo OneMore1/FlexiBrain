@@ -268,5 +268,3 @@ logging:
   checkpoint_dir: ./checkpoints/downstream/run_name
   log_dir: ./logs/downstream/run_name
 ```
-
-CLI arguments override values loaded from YAML.
