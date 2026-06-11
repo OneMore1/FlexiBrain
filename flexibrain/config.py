@@ -55,6 +55,7 @@ class DataConfig:
     memory_map: bool = True
     T_prime: int = 30
     tau_seconds: float = 6.0
+    default_tr: Optional[float] = None
 
 
 @dataclass

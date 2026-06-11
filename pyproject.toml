@@ -8,6 +8,7 @@ version = "0.1.0"
 description = "Flexible-resolution fMRI Mamba-JEPA pretraining and downstream classification"
 readme = "README.md"
 requires-python = ">=3.10,<3.11"
+license = {file = "LICENSE"}
 dependencies = [
   "numpy==1.26.2",
   "pandas==2.1.3",
@@ -18,6 +19,20 @@ dependencies = [
   "einops==0.7.0",
   "packaging>=23.2",
   "triton==2.1.0",
+]
+
+[project.optional-dependencies]
+cuda = [
+  "torch==2.1.2",
+  "torchvision==0.16.2",
+  "torchaudio==2.1.2",
+  "causal-conv1d==1.2.2.post1",
+  "mamba-ssm==2.0.3",
+  "flash-attn==2.5.8",
+]
+preprocess = [
+  "nilearn==0.10.3",
+  "tqdm==4.66.1",
 ]
 
 [project.scripts]

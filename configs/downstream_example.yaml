@@ -1,4 +1,4 @@
-pretrain_checkpoint: /mnt/dataset4/yewh/temp-free-model/checkpoints/mamba_moe1/checkpoint_best.pt
+pretrain_checkpoint: /path/to/checkpoint_best.pt
 from_scratch: false
 use_checkpoint_config: true
 model:
@@ -15,14 +15,19 @@ model:
   mlp_dropout: 0.1
   freeze_backbone: false
 data:
-  train_list: /mnt/dataset4/DATASETS/fsl_fmri/split/ppmi_train.txt
-  val_list: /mnt/dataset4/DATASETS/fsl_fmri/split/ppmi_val.txt
-  test_list: /mnt/dataset4/DATASETS/fsl_fmri/split/ppmi_test.txt
-  csv: /mnt/dataset4/yewh/temp-free-model/ppmi.csv
+  train_list: data/lists/downstream_train.txt
+  val_list: data/lists/downstream_val.txt
+  test_list: data/lists/downstream_test.txt
+  csv: data/labels.csv
+  id_column: Subject
+  label_column: Group_idx
+  label_mode: multiclass
+  path_id_mode: auto
   batch_size: 8
   num_workers: 8
   T_prime: 30
   tau_seconds: 6.0
+  default_tr: null
 training:
   epochs: 30
   lr: 1.0e-5
@@ -31,9 +36,10 @@ training:
   weight_decay: 0.05
   warmup_epochs: 2
   grad_accumulation_steps: 2
+  grad_clip: 1.0
   seed: 42
   use_amp: true
 logging:
   log_interval: 20
-  checkpoint_dir: ./checkpoints/downstream/ppmi
-  log_dir: ./logs/downstream/ppmi
+  checkpoint_dir: ./checkpoints/downstream/example
+  log_dir: ./logs/downstream/example

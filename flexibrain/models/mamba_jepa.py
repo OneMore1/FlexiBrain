@@ -399,7 +399,6 @@ class VolumeMambaJEPA(nn.Module):
 
         x_tgt_pad, attn_tgt, tgt_lengths = self._build_target_masked(x_full, mask_full, lengths)
         with torch.no_grad():
-            self.update_target_encoder(self.momentum)
             tgt_feat = self._run_blocks(
                 x_tgt_pad, attn_tgt, 
                 blocks=self.target_blocks,
@@ -430,14 +429,6 @@ class VolumeMambaJEPA(nn.Module):
             pred_norm = torch.linalg.norm(pred_masked, dim=-1, keepdim=True).clamp_min(1e-6)
             pred_masked = pred_masked / pred_norm
 
-        # maybe_visualize_batch(
-        #     context_features_proj=ctx_full, 
-        #     target_features_proj=tgt_feat, 
-        #     pred_target=pred_masked, 
-        #     out_root='/mnt/dataset4/yewh/temp-free-model/visual_col_mamba/mamba-moe-colorbar', 
-        #     max_samples=2,
-        #     share_vrange_raw=True,
-        # )
 
         valid = ~attn_pred
         denom = valid.sum().clamp_min(1)

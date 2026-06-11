@@ -1,0 +1,34 @@
+model:
+  model_type: mamba
+  embed_dim: 512
+  depth: 24
+  predictor_depth: 2
+  drop_path_rate: 0.1
+  bimamba_type: v2
+  if_devide_out: true
+  mixer_type: mamba
+  momentum: 0.996
+  final_momentum: 0.9999
+  norm_target: true
+data:
+  train_list: data/lists/pretrain_train.txt
+  val_list: data/lists/pretrain_val.txt
+  batch_size: 4
+  num_workers: 8
+  T_prime: 30
+  tau_seconds: 6.0
+  default_tr: null
+training:
+  epochs: 30
+  lr: 5.0e-4
+  weight_decay: 0.05
+  warmup_epochs: 3
+  mask_ratio: 0.65
+  grad_clip: 1.0
+  grad_accumulation_steps: 4
+  seed: 42
+  use_amp: true
+logging:
+  log_interval: 20
+  checkpoint_dir: ./checkpoints/pretrain/example
+  log_dir: ./logs/pretrain/example

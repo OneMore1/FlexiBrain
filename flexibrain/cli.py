@@ -20,6 +20,7 @@ def _add_common(parser):
     parser.add_argument("--num-workers", type=int, default=None)
     parser.add_argument("--t-prime", type=int, default=None)
     parser.add_argument("--tau-seconds", type=float, default=None)
+    parser.add_argument("--default-tr", type=float, default=None, help="Fallback TR in seconds when a NIfTI header has no valid TR.")
     parser.add_argument("--epochs", type=int, default=None)
     parser.add_argument("--lr", type=float, default=None)
     parser.add_argument("--weight-decay", type=float, default=None)
@@ -31,7 +32,10 @@ def _add_common(parser):
     parser.add_argument("--log-dir", default=None)
     parser.add_argument("--local-rank", type=int, default=None)
     parser.add_argument("--world-size", type=int, default=None)
+    parser.add_argument("--use-amp", action="store_true", default=None)
+    parser.add_argument("--no-use-amp", dest="use_amp", action="store_false")
     parser.add_argument("--dry-run", action="store_true")
+    parser.set_defaults(use_amp=None)
 
 
 def _add_model(parser):
@@ -59,6 +63,10 @@ def apply_common(cfg, args):
         cfg.data.T_prime = args.t_prime
     if args.tau_seconds is not None:
         cfg.data.tau_seconds = args.tau_seconds
+    if args.default_tr is not None:
+        cfg.data.default_tr = args.default_tr
+    if args.use_amp is not None:
+        cfg.training.use_amp = args.use_amp
     if args.log_interval is not None:
         cfg.logging.log_interval = args.log_interval
     if args.checkpoint_dir is not None:

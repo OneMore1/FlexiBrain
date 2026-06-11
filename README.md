@@ -1,8 +1,6 @@
 # Flexibrain
 
-Flexibrain is a resolution-agnostic voxel-level framework for native fMRI. It is designed for 4D fMRI collected from different scanners, sites, and protocols, where spatial voxel size and temporal resolution can vary substantially.
-
-Instead of forcing every subject into a fixed template space, Flexibrain defines spatial and temporal patches in real-world physical units, dynamically resizes patch embedding kernels according to each sample's voxel spacing and TR, and learns representations with a Mamba-JEPA backbone.
+Flexibrain is a voxel-level fMRI representation learning framework for pretraining and downstream classification. It keeps fMRI volumes in a fixed 96 x 96 x 96 input grid, reads each sample's voxel spacing and TR from the NIfTI header, and resizes patch embedding kernels in physical spatial and temporal units before learning with a Mamba-JEPA backbone.
 
 <p align="center">
   <img src="assets/pipeline.png" width="900" alt="FlexiBrain framework pipeline">
@@ -23,55 +21,28 @@ Check the CLI:
 
 ```bash
 python -m flexibrain --help
+python -m flexibrain pretrain --help
 python -m flexibrain downstream --help
 ```
 
 ## Data Preparation
 
-### NIfTI Files
-
-Each sample should be a 4D fMRI NIfTI file:
+Each sample should be a 4D NIfTI file shaped as:
 
 ```text
 96 x 96 x 96 x T
 ```
 
-Flexibrain reads voxel size and TR from the NIfTI header. `T_prime` and `tau_seconds` control the selected temporal length:
+Flexibrain uses the NIfTI header to read voxel spacing and TR. If a dataset has missing TR metadata, fix the header before training or pass an explicit fallback with `--default-tr` / `data.default_tr`.
+
+`T_prime` and `tau_seconds` control the selected temporal length:
 
 ```text
 kt = round(tau_seconds / TR)
 T_selected = T_prime * kt
 ```
 
-### Three-Space Global Z-score Preprocessing
-
-For voxel-level fMRI experiments, the preprocessing script can prepare three spatial versions of each 4D sample:
-
-```text
-Native space
-T1 space
-MNI space
-```
-
-Each version is converted to a fixed spatial shape while preserving the temporal dimension:
-
-```text
-X x Y x Z x T
--> 96 x 96 x 96 x T
-```
-
-After spatial padding/cropping, each sample is normalized with **sample-wise global z-score**. Background voxels are excluded when estimating the normalization statistics. For each 4D sample, the mean and standard deviation are computed from all foreground voxels across all time points:
-
-```text
-foreground_values = data[foreground_mask, :]
-mean = foreground_values.mean()
-std = foreground_values.std()
-z = (data - mean) / (std + 1e-6)
-```
-
-Background voxels are then set to zero in the final output.
-
-The unified preprocessing script generates full 4D NIfTI files for all three spaces:
+The preprocessing script can convert native/T1/MNI-space inputs to 96 x 96 x 96, apply sample-wise global z-score normalization over foreground voxels, and write 4D NIfTI outputs:
 
 ```bash
 python data_process.py \
@@ -81,82 +52,25 @@ python data_process.py \
   --groups class0,class1,class2
 ```
 
-Expected input layout:
+Expected grouped input layout:
 
 ```text
 input_root/
-|-- nativespace/
-|   |-- class0/
-|   |-- class1/
-|   `-- class2/
-|-- t1space/
-|   |-- class0/
-|   |-- class1/
-|   `-- class2/
-`-- mnispace/
-    |-- class0/
-    |-- class1/
-    `-- class2/
+|-- nativespace/class0/*.nii.gz
+|-- t1space/class0/*.nii.gz
+`-- mnispace/class0/*.nii.gz
 ```
 
-Expected output layout:
+If files are not organized by group subfolders, omit `--groups`. For MNI-space inputs, provide `--template-mask` when the default mask is not available.
 
-```text
-output_root/
-|-- nativespace/
-|   |-- class0/
-|   |-- class1/
-|   `-- class2/
-|-- t1space/
-|   |-- class0/
-|   |-- class1/
-|   `-- class2/
-`-- mnispace/
-    |-- class0/
-    |-- class1/
-    `-- class2/
-```
-
-Each output file is a full 4D NIfTI:
-
-```text
-{stem}_global_zscore.nii.gz
-```
-
-If the input files are not organized by class or group subfolders, omit `--groups`; the script can also process NIfTI files placed directly under each space directory. For T1-space inputs, the script uses the corresponding native-space file to estimate the background mask. For MNI-space inputs, provide a template-space brain mask with `--template-mask` when the default mask is not available.
-
-The generated files can then be used directly in Flexibrain path-list files for pretraining or downstream classification.
-
-
-### Pretraining Lists
-
-Pretraining uses text files with one NIfTI path per line:
+Pretraining list files contain one NIfTI path per line:
 
 ```text
 /path/to/sub-0001_bold.nii.gz
 /path/to/sub-0002_bold.nii.gz
-/path/to/sub-0003_bold.nii.gz
 ```
 
-A typical layout is:
-
-```text
-data/
-|-- lists/
-|   |-- train.txt
-|   |-- val.txt
-|   `-- test.txt
-`-- nifti/
-    |-- sub-0001_bold.nii.gz
-    |-- sub-0002_bold.nii.gz
-    `-- ...
-```
-
-### Downstream Labels
-
-Downstream classification uses the same path-list format plus a CSV label table. The list files contain paths only, not `path,label` pairs.
-
-Default CSV format:
+Downstream classification uses the same list format plus a CSV label table:
 
 ```csv
 Subject,Group_idx
@@ -165,27 +79,24 @@ Subject,Group_idx
 1001,0
 ```
 
-Default label options:
-
-```text
-id_column = Subject
-label_column = Group_idx
-label_mode = multiclass
-path_id_mode = auto
-```
-
-`path_id_mode=auto` supports common ADNI-style IDs like `003_S_0908`, ADHD-style filenames, and fallback digit IDs. Override it with `--path-id-mode adni`, `--path-id-mode adhd`, or `--path-id-mode digits` when needed.
+Default label fields are `Subject` and `Group_idx`. `path_id_mode=auto` supports ADNI-style IDs such as `003_S_0908`, ADHD-style filenames, and fallback digit IDs.
 
 ## Pretraining
 
-Run self-supervised Mamba-JEPA pretraining:
+Run from a config:
+
+```bash
+python -m flexibrain pretrain --config configs/pretrain_example.yaml
+```
+
+Or use CLI arguments:
 
 ```bash
 python -m flexibrain pretrain \
-  --train-list /path/to/train.txt \
-  --val-list /path/to/val.txt \
-  --checkpoint-dir ./checkpoints/mamba_moe1 \
-  --log-dir ./logs/mamba_moe1 \
+  --train-list /path/to/pretrain_train.txt \
+  --val-list /path/to/pretrain_val.txt \
+  --checkpoint-dir ./checkpoints/pretrain/example \
+  --log-dir ./logs/pretrain/example \
   --embed-dim 512 \
   --depth 24 \
   --predictor-depth 2 \
@@ -199,33 +110,33 @@ python -m flexibrain pretrain \
   --mask-ratio 0.65 \
   --grad-accumulation-steps 4 \
   --t-prime 30 \
-  --tau-seconds 6.0
+  --tau-seconds 6.0 \
+  --use-amp
 ```
 
-Saved outputs:
+Outputs:
 
 ```text
-checkpoints/mamba_moe1/checkpoint_latest.pt
-checkpoints/mamba_moe1/checkpoint_best.pt
-logs/mamba_moe1/pretrain_*.log
+checkpoint_latest.pt
+checkpoint_best.pt
+pretrain_*.log
 ```
 
 ## Downstream Classification
 
-A downstream run can be launched with a YAML config:
+Run from a config:
 
 ```bash
-python -m flexibrain downstream \
-  --config configs/downstream_ppmi.yaml
+python -m flexibrain downstream --config configs/downstream_example.yaml
 ```
 
-Or with CLI arguments:
+Or use CLI arguments:
 
 ```bash
 python -m flexibrain downstream \
-  --train-list /path/to/train.txt \
-  --val-list /path/to/val.txt \
-  --test-list /path/to/test.txt \
+  --train-list /path/to/downstream_train.txt \
+  --val-list /path/to/downstream_val.txt \
+  --test-list /path/to/downstream_test.txt \
   --csv /path/to/labels.csv \
   --pretrain-checkpoint /path/to/checkpoint_best.pt \
   --num-classes 3 \
@@ -235,36 +146,32 @@ python -m flexibrain downstream \
   --lr 1e-5 \
   --lr-backbone 6e-6 \
   --lr-head 6e-5 \
-  --checkpoint-dir ./checkpoints/downstream/ppmi \
-  --log-dir ./logs/downstream/ppmi
+  --checkpoint-dir ./checkpoints/downstream/example \
+  --log-dir ./logs/downstream/example \
+  --use-amp
 ```
 
-## Config Files
+During downstream training, validation metrics select `downstream_best.pt`. The test set is evaluated once at the end after loading that best validation checkpoint, and the final metrics are written to `test_metrics.json`.
 
-YAML config mirrors the CLI options:
+## Configuration
 
-```yaml
-pretrain_checkpoint: /path/to/checkpoint_best.pt
-from_scratch: false
-use_checkpoint_config: true
-model:
-  model_type: mamba
-  num_classes: 3
-  head_type: transformer
-data:
-  train_list: /path/to/train.txt
-  val_list: /path/to/val.txt
-  test_list: /path/to/test.txt
-  csv: /path/to/labels.csv
-  batch_size: 8
-  T_prime: 30
-  tau_seconds: 6.0
-training:
-  epochs: 30
-  lr: 1.0e-5
-  lr_backbone: 6.0e-6
-  lr_head: 6.0e-5
-logging:
-  checkpoint_dir: ./checkpoints/downstream/run_name
-  log_dir: ./logs/downstream/run_name
+YAML config mirrors the CLI options. Keep private paths in local config files and leave shared configs as portable examples. The provided examples use placeholder paths under `data/`:
+
+```text
+configs/pretrain_example.yaml
+configs/downstream_example.yaml
 ```
+
+## Checkpoint Compatibility
+
+The downstream loader can initialize from the original pretraining checkpoint path format:
+
+```text
+/path/to/checkpoint_best.pt
+```
+
+When `use_checkpoint_config: true`, model-shape settings stored in the checkpoint are applied before loading the backbone.
+
+## License
+
+This repository is provided for non-commercial research use under CC BY-NC-SA 4.0. See `LICENSE` and `NOTICE` for license boundaries and preserved notices.

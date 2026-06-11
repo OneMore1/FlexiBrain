@@ -31,6 +31,8 @@ class Pretrainer:
         self.model = build_pretrain_model(self.cfg.model, self.device)
         self.train_loader, self.val_loader = build_pretrain_dataloaders(self.cfg.data, self.cfg.training, rank=self.rank, world_size=self.world_size)
         self.optimizer = optim.AdamW(self.model.parameters(), lr=self.cfg.training.lr, weight_decay=self.cfg.training.weight_decay)
+        self.use_amp = bool(self.cfg.training.use_amp and self.device.type == "cuda")
+        self.scaler = torch.cuda.amp.GradScaler(enabled=self.use_amp)
         total_steps = max(1, len(self.train_loader) * self.cfg.training.epochs)
         warmup_steps = max(1, len(self.train_loader) * self.cfg.training.warmup_epochs)
 
@@ -46,6 +48,16 @@ class Pretrainer:
         self.scheduler = optim.lr_scheduler.LambdaLR(self.optimizer, lr_lambda)
         return self
 
+    def _optimizer_step(self, momentum: float) -> None:
+        if self.cfg.training.grad_clip > 0:
+            self.scaler.unscale_(self.optimizer)
+            torch.nn.utils.clip_grad_norm_(self.model.parameters(), self.cfg.training.grad_clip)
+        self.scaler.step(self.optimizer)
+        self.scaler.update()
+        self.optimizer.zero_grad(set_to_none=True)
+        update_ema(self.model, momentum)
+        self.scheduler.step()
+
     def train_one_epoch(self, epoch: int) -> float:
         self.model.train()
         total_loss = 0.0
@@ -55,19 +67,17 @@ class Pretrainer:
         self.optimizer.zero_grad(set_to_none=True)
         for batch_idx, batch in enumerate(self.train_loader):
             x, meta, orig_Ts, affines = prepare_batch_data(batch, self.device)
-            loss, _, _, _ = self.model(x, mask_ratio=self.cfg.training.mask_ratio, meta=meta, orig_Ts=orig_Ts, affines=affines)
-            (loss / accumulation_steps).backward()
+            with torch.autocast(device_type=self.device.type, dtype=torch.float16, enabled=self.use_amp):
+                loss, _, _, _ = self.model(x, mask_ratio=self.cfg.training.mask_ratio, meta=meta, orig_Ts=orig_Ts, affines=affines)
+            self.scaler.scale(loss / accumulation_steps).backward()
             total_loss += float(loss.item())
             num_batches += 1
             if (batch_idx + 1) % accumulation_steps == 0:
-                if self.cfg.training.grad_clip > 0:
-                    torch.nn.utils.clip_grad_norm_(self.model.parameters(), self.cfg.training.grad_clip)
-                self.optimizer.step()
-                self.optimizer.zero_grad(set_to_none=True)
-                update_ema(self.model, momentum)
-                self.scheduler.step()
+                self._optimizer_step(momentum)
             if self.rank == 0 and (batch_idx + 1) % self.cfg.logging.log_interval == 0:
                 self.logger.info("Epoch %d [%d/%d] loss=%.6f avg=%.6f momentum=%.6f", epoch + 1, batch_idx + 1, len(self.train_loader), loss.item(), total_loss / num_batches, momentum)
+        if num_batches % accumulation_steps != 0:
+            self._optimizer_step(momentum)
         return total_loss / max(1, num_batches)
 
     @torch.no_grad()
@@ -77,7 +87,8 @@ class Pretrainer:
         num_batches = 0
         for batch in self.val_loader:
             x, meta, orig_Ts, affines = prepare_batch_data(batch, self.device)
-            loss, _, _, _ = self.model(x, mask_ratio=self.cfg.training.mask_ratio, meta=meta, orig_Ts=orig_Ts, affines=affines)
+            with torch.autocast(device_type=self.device.type, dtype=torch.float16, enabled=self.use_amp):
+                loss, _, _, _ = self.model(x, mask_ratio=self.cfg.training.mask_ratio, meta=meta, orig_Ts=orig_Ts, affines=affines)
             total_loss += float(loss.item())
             num_batches += 1
         avg = total_loss / max(1, num_batches)
@@ -85,7 +96,7 @@ class Pretrainer:
             self.logger.info("Epoch %d validation loss=%.6f", epoch + 1, avg)
         return avg
 
-    def save(self, epoch: int, best_loss: float):
+    def save(self, epoch: int, val_loss: float, best_loss: float, is_best: bool):
         if self.rank != 0:
             return
         os.makedirs(self.cfg.logging.checkpoint_dir, exist_ok=True)
@@ -94,11 +105,13 @@ class Pretrainer:
             "model_state_dict": self.model.state_dict(),
             "optimizer_state_dict": self.optimizer.state_dict(),
             "scheduler_state_dict": self.scheduler.state_dict(),
+            "val_loss": val_loss,
             "best_loss": best_loss,
             "config": vars(self.cfg.model),
         }
         torch.save(payload, os.path.join(self.cfg.logging.checkpoint_dir, "checkpoint_latest.pt"))
-        torch.save(payload, os.path.join(self.cfg.logging.checkpoint_dir, "checkpoint_best.pt"))
+        if is_best:
+            torch.save(payload, os.path.join(self.cfg.logging.checkpoint_dir, "checkpoint_best.pt"))
 
     def fit(self):
         self.build()
@@ -111,9 +124,10 @@ class Pretrainer:
                 self.train_loader.sampler.set_epoch(epoch)
             train_loss = self.train_one_epoch(epoch)
             val_loss = self.validate(epoch)
-            if val_loss < best_loss:
+            is_best = val_loss < best_loss
+            if is_best:
                 best_loss = val_loss
-            self.save(epoch, best_loss)
+            self.save(epoch, val_loss, best_loss, is_best=is_best)
             if self.rank == 0:
                 self.logger.info("Epoch %d done train=%.6f val=%.6f best=%.6f", epoch + 1, train_loss, val_loss, best_loss)
         if self.world_size > 1:

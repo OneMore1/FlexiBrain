@@ -1,0 +1,8 @@
+Flexibrain Notice
+
+This repository contains Flexibrain project code plus small source fragments
+needed for the pretrain/downstream path. Third-party references and preserved
+license files are listed in THIRD_PARTY.md and licenses/.
+
+Selected files include reference comments at the top of the source file where
+the implementation is derived from or adapted from prior public projects.

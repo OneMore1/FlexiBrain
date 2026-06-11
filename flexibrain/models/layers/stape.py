@@ -66,6 +66,10 @@ class STAPE4D_TimeToSpace(nn.Module):
     @torch.no_grad()
     def _k_from_meta(self, tr: float, voxel: Tuple[float, float, float]) -> Tuple[int, int, int, int]:
         vx, vy, vz = voxel
+        if tr <= 0 or not math.isfinite(float(tr)):
+            raise ValueError(f"TR must be positive for STAPE kernel sizing, got {tr!r}")
+        if any(v <= 0 or not math.isfinite(float(v)) for v in (vx, vy, vz)):
+            raise ValueError(f"Voxel spacing must be positive for STAPE kernel sizing, got {voxel!r}")
         kt = max(1, round(self.tau / tr))
         kx = max(1, round(self.rho[0] / vx))
         ky = max(1, round(self.rho[1] / vy))

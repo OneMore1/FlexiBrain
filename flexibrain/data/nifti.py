@@ -193,6 +193,7 @@ class NiftiTxtDataset(Dataset):
         cache_meta: bool = True,
         T_prime: Optional[int] = None,
         tau_seconds: float = 6.0,
+        default_tr: Optional[float] = None,
     ) -> None:
         super().__init__()
         self.paths: List[Path] = _read_list_files(txt_files)
@@ -204,6 +205,9 @@ class NiftiTxtDataset(Dataset):
         self.cache_meta = bool(cache_meta)
         self.T_prime = T_prime
         self.tau_seconds = float(tau_seconds)
+        self.default_tr = float(default_tr) if default_tr is not None else None
+        if self.default_tr is not None and self.default_tr <= 0:
+            raise ValueError("default_tr must be positive when provided")
         self._meta_cache: Dict[int, Tuple[Tuple[float, float, float], float]] = {}
 
     def __len__(self) -> int:
@@ -215,6 +219,17 @@ class NiftiTxtDataset(Dataset):
         if header is None:
             _, _, header = _load_nifti(self.paths[idx], mmap=self.memory_map)
         voxel, tr = _space_time_units_to_mm_s(header)
+        voxel = tuple(float(v) for v in voxel)
+        if any((not np.isfinite(v)) or v <= 0 for v in voxel):
+            raise ValueError(f"Invalid voxel spacing for {self.paths[idx]}: {voxel}")
+        tr = float(tr)
+        if (not np.isfinite(tr)) or tr <= 0:
+            if self.default_tr is None:
+                raise ValueError(
+                    f"Invalid or missing TR for {self.paths[idx]}: {tr}. "
+                    "Set data.default_tr or pass --default-tr to use an explicit fallback."
+                )
+            tr = self.default_tr
         if self.cache_meta:
             self._meta_cache[idx] = (voxel, tr)
         return voxel, tr
@@ -237,8 +252,10 @@ class NiftiTxtDataset(Dataset):
         Returns:
             T_selected: Number of time frames to use (min with T_total)
         """
-        if self.T_prime is None or tr <= 0:
+        if self.T_prime is None:
             return T_total
+        if tr <= 0:
+            raise ValueError("TR must be positive when T_prime is set")
 
         # Calculate kernel size in time dimension
         kt = max(1, round(self.tau_seconds / tr))

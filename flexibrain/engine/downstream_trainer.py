@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import os
 from typing import Dict
 
@@ -43,6 +44,8 @@ class DownstreamTrainer:
             ], weight_decay=self.cfg.training.weight_decay)
         else:
             self.optimizer = optim.AdamW(self.model.parameters(), lr=self.cfg.training.lr, weight_decay=self.cfg.training.weight_decay)
+        self.use_amp = bool(self.cfg.training.use_amp and self.device.type == "cuda")
+        self.scaler = torch.cuda.amp.GradScaler(enabled=self.use_amp)
         total_steps = max(1, len(self.train_loader) * self.cfg.training.epochs)
         warmup_steps = max(1, len(self.train_loader) * self.cfg.training.warmup_epochs)
 
@@ -54,6 +57,15 @@ class DownstreamTrainer:
         self.scheduler = optim.lr_scheduler.LambdaLR(self.optimizer, lr_lambda)
         return self
 
+    def _optimizer_step(self) -> None:
+        if self.cfg.training.grad_clip > 0:
+            self.scaler.unscale_(self.optimizer)
+            torch.nn.utils.clip_grad_norm_(self.model.parameters(), self.cfg.training.grad_clip)
+        self.scaler.step(self.optimizer)
+        self.scaler.update()
+        self.scheduler.step()
+        self.optimizer.zero_grad(set_to_none=True)
+
     def train_one_epoch(self, epoch: int) -> float:
         self.model.train()
         criterion = nn.CrossEntropyLoss()
@@ -63,22 +75,18 @@ class DownstreamTrainer:
         self.optimizer.zero_grad(set_to_none=True)
         for batch_idx, batch in enumerate(self.train_loader):
             x, meta, orig_Ts, labels, affines = prepare_batch_data(batch, self.device)
-            with torch.cuda.amp.autocast(enabled=self.cfg.training.use_amp):
+            with torch.autocast(device_type=self.device.type, dtype=torch.float16, enabled=self.use_amp):
                 logits = self.model(x, meta=meta, orig_Ts=orig_Ts, affines=affines)
                 loss = criterion(logits, labels)
-            (loss / accum).backward()
+            self.scaler.scale(loss / accum).backward()
             if (batch_idx + 1) % accum == 0:
-                self.optimizer.step()
-                self.scheduler.step()
-                self.optimizer.zero_grad(set_to_none=True)
+                self._optimizer_step()
             total_loss += float(loss.item())
             num_batches += 1
             if self.rank == 0 and (batch_idx + 1) % self.cfg.logging.log_interval == 0:
                 self.logger.info("Epoch %d [%d/%d] loss=%.6f", epoch + 1, batch_idx + 1, len(self.train_loader), loss.item())
         if num_batches % accum != 0:
-            self.optimizer.step()
-            self.scheduler.step()
-            self.optimizer.zero_grad(set_to_none=True)
+            self._optimizer_step()
         return total_loss / max(1, num_batches)
 
     @torch.no_grad()
@@ -90,8 +98,9 @@ class DownstreamTrainer:
         num_batches = 0
         for batch in loader:
             x, meta, orig_Ts, labels, affines = prepare_batch_data(batch, self.device)
-            logits = self.model(x, meta=meta, orig_Ts=orig_Ts, affines=affines)
-            loss = criterion(logits, labels)
+            with torch.autocast(device_type=self.device.type, dtype=torch.float16, enabled=self.use_amp):
+                logits = self.model(x, meta=meta, orig_Ts=orig_Ts, affines=affines)
+                loss = criterion(logits, labels)
             total_loss += float(loss.item())
             num_batches += 1
             preds.extend(torch.argmax(logits, dim=1).cpu().numpy())
@@ -108,18 +117,36 @@ class DownstreamTrainer:
             self.logger.info("%s metrics: %s", split_name, metrics)
         return metrics
 
-    def save(self, epoch: int, metrics: dict):
+    def save(self, epoch: int, metrics: dict, is_best: bool):
         if self.rank != 0:
             return
         os.makedirs(self.cfg.logging.checkpoint_dir, exist_ok=True)
-        torch.save({
+        payload = {
             "epoch": epoch,
             "model": self.model.state_dict(),
             "optimizer": self.optimizer.state_dict(),
             "scheduler": self.scheduler.state_dict(),
             "metrics": metrics,
             "config": vars(self.cfg.model),
-        }, os.path.join(self.cfg.logging.checkpoint_dir, f"downstream_epoch_{epoch:03d}.pt"))
+        }
+        torch.save(payload, os.path.join(self.cfg.logging.checkpoint_dir, "downstream_latest.pt"))
+        if is_best:
+            torch.save(payload, os.path.join(self.cfg.logging.checkpoint_dir, "downstream_best.pt"))
+
+    def _load_best_for_test(self) -> None:
+        best_path = os.path.join(self.cfg.logging.checkpoint_dir, "downstream_best.pt")
+        if not os.path.exists(best_path):
+            return
+        checkpoint = torch.load(best_path, map_location=self.device)
+        self.model.load_state_dict(checkpoint["model"])
+
+    def _save_test_metrics(self, metrics: Dict[str, float]) -> None:
+        if self.rank != 0:
+            return
+        os.makedirs(self.cfg.logging.checkpoint_dir, exist_ok=True)
+        path = os.path.join(self.cfg.logging.checkpoint_dir, "test_metrics.json")
+        with open(path, "w", encoding="utf-8") as f:
+            json.dump(metrics, f, indent=2)
 
     def fit(self):
         self.build()
@@ -131,10 +158,13 @@ class DownstreamTrainer:
             train_loss = self.train_one_epoch(epoch)
             val_metrics = self.evaluate(self.val_loader, "Validation")
             metrics = {"val": val_metrics, "train_loss": train_loss}
-            if self.test_loader is not None:
-                metrics["test"] = self.evaluate(self.test_loader, "Test")
-            if val_metrics["f1_macro"] > best_f1:
+            is_best = val_metrics["f1_macro"] > best_f1
+            if is_best:
                 best_f1 = val_metrics["f1_macro"]
-            self.save(epoch, metrics)
+            self.save(epoch, metrics, is_best=is_best)
             if self.rank == 0:
                 self.logger.info("Epoch %d done train=%.6f best_f1=%.6f", epoch + 1, train_loss, best_f1)
+        if self.test_loader is not None:
+            self._load_best_for_test()
+            test_metrics = self.evaluate(self.test_loader, "Test")
+            self._save_test_metrics(test_metrics)
