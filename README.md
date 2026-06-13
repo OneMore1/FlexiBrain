@@ -1,11 +1,20 @@
-# Flexibrain
+<div align="center">
+# FlexiBrain: Resolution-Agnostic Voxel-Level Encoding for Native fMRI
+
+<div align="center">
+
+[![arXiv](https://img.shields.io/badge/arXiv-2606.11500-b31b1b.svg?style=flat-square)](https://arxiv.org/abs/2606.11500)
+[![GitHub](https://img.shields.io/badge/GitHub-Repository-181717?style=flat-square&logo=github)](https://github.com/OneMore1/FlexiBrain)
+[![Hugging Face](https://img.shields.io/badge/%F0%9F%A4%97%20Hugging%20Face-Models-blue)](https://huggingface.co/OneMore1/FlexiBrain)
+
+</div>
 
 Flexibrain is a voxel-level fMRI representation learning framework for pretraining and downstream classification. It keeps fMRI volumes in a fixed 96 x 96 x 96 input grid, reads each sample's voxel spacing and TR from the NIfTI header, and resizes patch embedding kernels in physical spatial and temporal units before learning with a Mamba-JEPA backbone.
 
 <p align="center">
   <img src="assets/pipeline.png" width="900" alt="FlexiBrain framework pipeline">
 </p>
-
+</div>
 ## Installation
 
 The code was tested on l40 with Python 3.10, PyTorch 2.1.2, CUDA 12.1, `causal-conv1d`, `mamba-ssm`, and `flash-attn`.
@@ -164,6 +173,8 @@ configs/downstream_example.yaml
 
 ## Checkpoint Compatibility
 
+Checkpoint is available at https://huggingface.co/OneMore1/FlexiBrain/blob/main/checkpoint_best.pt.
+
 The downstream loader can initialize from the original pretraining checkpoint path format:
 
 ```text
@@ -172,6 +183,3 @@ The downstream loader can initialize from the original pretraining checkpoint pa
 
 When `use_checkpoint_config: true`, model-shape settings stored in the checkpoint are applied before loading the backbone.
 
-## License
-
-This repository is provided for non-commercial research use under CC BY-NC-SA 4.0. See `LICENSE` and `NOTICE` for license boundaries and preserved notices.
