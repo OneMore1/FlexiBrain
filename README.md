@@ -1,7 +1,7 @@
 <div align="center">
-# FlexiBrain: Resolution-Agnostic Voxel-Level Encoding for Native fMRI
+FlexiBrain: Resolution-Agnostic Voxel-Level Encoding for Native fMRI
 
-<div align="center">
+
 
 [![arXiv](https://img.shields.io/badge/arXiv-2606.11500-b31b1b.svg?style=flat-square)](https://arxiv.org/abs/2606.11500)
 [![GitHub](https://img.shields.io/badge/GitHub-Repository-181717?style=flat-square&logo=github)](https://github.com/OneMore1/FlexiBrain)
@@ -14,7 +14,7 @@ Flexibrain is a voxel-level fMRI representation learning framework for pretraini
 <p align="center">
   <img src="assets/pipeline.png" width="900" alt="FlexiBrain framework pipeline">
 </p>
-</div>
+
 ## Installation
 
 The code was tested on l40 with Python 3.10, PyTorch 2.1.2, CUDA 12.1, `causal-conv1d`, `mamba-ssm`, and `flash-attn`.
