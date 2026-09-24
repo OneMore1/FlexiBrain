@@ -1,5 +1,5 @@
 <div align="center">
-FlexiBrain: Resolution-Agnostic Voxel-Level Encoding for Native fMRI
+[ECCV 2026] FlexiBrain: Resolution-Agnostic Voxel-Level Encoding for Native fMRI
 
 
 
@@ -182,4 +182,19 @@ The downstream loader can initialize from the original pretraining checkpoint pa
 ```
 
 When `use_checkpoint_config: true`, model-shape settings stored in the checkpoint are applied before loading the backbone.
+
+
+## Citation
+
+```bibtex
+@inproceedings{wang2026flexibrain,
+  title={Flexibrain: Resolution-agnostic voxel-level encoding for native fmri},
+  author={Wang, Mo and Ye, Wenhao and Xia, Junfeng and Xu, Minghao and Wen, Hongkai and Liu, Quanying},
+  booktitle={European Conference on Computer Vision},
+  pages={432--449},
+  year={2026},
+  organization={Springer}
+}
+```
+
 
