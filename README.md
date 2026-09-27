@@ -15,6 +15,8 @@ Flexibrain is a voxel-level fMRI representation learning framework for pretraini
   <img src="assets/pipeline.png" width="900" alt="FlexiBrain framework pipeline">
 </p>
 
+🚀 Welcome to our gallery **fMRI_atlas** for more models and dataset collections www.fmriatlas.com.
+
 ## Installation
 
 The code was tested on l40 with Python 3.10, PyTorch 2.1.2, CUDA 12.1, `causal-conv1d`, `mamba-ssm`, and `flash-attn`.
