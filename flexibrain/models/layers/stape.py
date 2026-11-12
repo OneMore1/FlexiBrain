@@ -175,10 +175,17 @@ class STAPE4D_TimeToSpace(nn.Module):
         b_t_first = self.b_t_first.to(device=device, dtype=dtype)
         tfeat = F.conv1d(xlin, w_t, bias=b_t_first, stride=kt)  # [N, Dm, T′]
         tfeat = tfeat.view(G, X, Y, Z, self.Dm, T_prime).permute(0,4,5,1,2,3).contiguous()
+        # Ignore fully padded windows, including their temporal convolution bias.
+        valid_windows = torch.tensor(
+            [(int(t) + kt - 1) // kt for t in orig_Ts], device=device
+        )
+        window_mask = torch.arange(T_prime, device=device)[None, :] < valid_windows[:, None]
+        tfeat = tfeat.masked_fill(~window_mask[:, None, :, None, None, None], 0.0)
         x_sp_in = tfeat.view(G, self.Dm*T_prime, X, Y, Z)  # [G, C_in, X,Y,Z]
 
         w_xyz = self._get_wxyz_after(kx,ky,kz, device, dtype)   # [Do, Dm, kx,ky,kz]
-        w_xyz_rep = w_xyz.repeat(1, T_prime, 1, 1, 1)           # [Do, Dm*T′, kx,ky,kz]
+        # Flattened channel d*T_prime+t must always use spatial kernel d.
+        w_xyz_rep = w_xyz.repeat_interleave(T_prime, dim=1)   # [Do, Dm*T′, kx,ky,kz]
         b_xyz_after = self.b_xyz_after.to(device=device, dtype=dtype)
         sfeat = F.conv3d(x_sp_in, w_xyz_rep, bias=b_xyz_after, stride=(kx,ky,kz))  # [G, Do, Lx,Ly,Lz]
 
